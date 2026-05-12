@@ -1,0 +1,42 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Variables d'environnement — NE JAMAIS COMMITER
+backend/.env
+backend/.env.local
+backend/.env.production
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Build frontend
+frontend/dist/
+frontend/dist-ssr/
+
+# Logs backend
+backend/logs/
+*.log
+npm-debug.log*
+
+# Uploads utilisateurs
+backend/uploads/
+
+# Prisma generated (régénéré par prisma generate)
+backend/node_modules/.prisma/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporaires
+*.tmp
+*.temp

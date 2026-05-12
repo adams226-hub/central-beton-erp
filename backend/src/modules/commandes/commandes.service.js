@@ -1,0 +1,284 @@
+const { PrismaClient } = require('@prisma/client');
+const { calculerBesoinsCommande, genererReferenceCommande } = require('../../utils/calculations');
+const { emitToUser, emitToRole } = require('../../config/socket');
+const logger = require('../../config/logger');
+
+const prisma = new PrismaClient();
+
+// Ordre du workflow de validation
+const WORKFLOW = {
+  BROUILLON: { next: 'EN_ATTENTE_SECRETAIRE', role: 'SECRETAIRE', etape: 1 },
+  EN_ATTENTE_SECRETAIRE: { next: 'EN_ATTENTE_CHEF_SITE', role: 'CHEF_DE_SITE', etape: 2 },
+  EN_ATTENTE_CHEF_SITE: { next: 'EN_ATTENTE_PDG', role: 'PDG', etape: 3 },
+  EN_ATTENTE_PDG: { next: 'VALIDEE', role: null, etape: null },
+};
+
+const listerCommandes = async (user, filters = {}) => {
+  const where = {};
+  if (filters.statut) where.statut = filters.statut;
+  if (filters.search) {
+    where.OR = [
+      { nomClient: { contains: filters.search, mode: 'insensitive' } },
+      { reference: { contains: filters.search, mode: 'insensitive' } },
+      { adresseChantier: { contains: filters.search, mode: 'insensitive' } },
+    ];
+  }
+  // Secrétaire voit seulement ses propres commandes créées + celles en attente
+  if (user.role === 'SECRETAIRE') {
+    where.OR = [{ createdById: user.id }, { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'VALIDEE', 'REJETEE'] } }];
+  }
+
+  const [commandes, total] = await prisma.$transaction([
+    prisma.commande.findMany({
+      where,
+      include: {
+        createdBy: { select: { nom: true, prenom: true, role: true } },
+        formulation: { select: { nom: true, typeBeton: true } },
+        validations: { include: { valideur: { select: { nom: true, prenom: true, role: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filters.limit ? parseInt(filters.limit) : 50,
+      skip: filters.page ? (parseInt(filters.page) - 1) * (parseInt(filters.limit) || 50) : 0,
+    }),
+    prisma.commande.count({ where }),
+  ]);
+
+  return { commandes, total, page: filters.page || 1 };
+};
+
+const getCommande = async (id) => {
+  const commande = await prisma.commande.findUnique({
+    where: { id },
+    include: {
+      createdBy: { select: { nom: true, prenom: true, role: true, email: true } },
+      formulation: true,
+      validations: {
+        include: { valideur: { select: { nom: true, prenom: true, role: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+  return commande;
+};
+
+const creerCommande = async (data, userId) => {
+  const formulation = data.formulationId
+    ? await prisma.formulation.findUnique({ where: { id: data.formulationId } })
+    : await prisma.formulation.findFirst({ where: { typeBeton: data.typeBeton, isActive: true } });
+
+  if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
+
+  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0);
+  const reference = genererReferenceCommande();
+
+  // fraisRestauration n'est pas un champ Prisma — on l'exclut du spread
+  const { fraisRestauration, ...calculsDB } = calculs;
+
+  const commande = await prisma.commande.create({
+    data: {
+      reference,
+      nomClient: data.nomClient,
+      telephone: data.telephone,
+      adresseChantier: data.adresseChantier,
+      volumeBeton: parseFloat(data.volumeBeton),
+      typeBeton: data.typeBeton,
+      dateLivraison: new Date(data.dateLivraison),
+      observations: data.observations,
+      statut: 'EN_ATTENTE_SECRETAIRE',
+      formulationId: formulation.id,
+      createdById: userId,
+      montantCommande: data.montantCommande ? parseFloat(data.montantCommande) : null,
+      ...calculsDB,
+    },
+    include: { createdBy: { select: { nom: true, prenom: true } }, formulation: true },
+  });
+
+  // Journal
+  await prisma.activite.create({
+    data: { userId, type: 'CREATION_COMMANDE', action: `Commande créée : ${reference}`, details: { commandeId: commande.id } },
+  });
+
+  // Notifier les secrétaires
+  await notifierRole('SECRETAIRE', commande, 'NOUVELLE_COMMANDE', `Nouvelle commande à valider : ${reference}`);
+
+  logger.info(`Commande créée : ${reference} par ${userId}`);
+  return commande;
+};
+
+const modifierCommande = async (id, data, userId) => {
+  const commande = await prisma.commande.findUnique({ where: { id } });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  if (!['BROUILLON', 'EN_ATTENTE_SECRETAIRE', 'REJETEE'].includes(commande.statut)) {
+    throw Object.assign(new Error('Cette commande ne peut plus être modifiée'), { statusCode: 400 });
+  }
+
+  let calculsDB = {};
+  if (data.volumeBeton || data.formulationId) {
+    const formulation = await prisma.formulation.findUnique({
+      where: { id: data.formulationId || commande.formulationId },
+    });
+    if (formulation) {
+      const { fraisRestauration, ...rest } = calculerBesoinsCommande(
+        data.volumeBeton || commande.volumeBeton,
+        formulation,
+        data.montantCommande || commande.montantCommande || 0
+      );
+      calculsDB = rest;
+    }
+  }
+
+  const updated = await prisma.commande.update({
+    where: { id },
+    data: {
+      ...(data.nomClient && { nomClient: data.nomClient }),
+      ...(data.telephone && { telephone: data.telephone }),
+      ...(data.adresseChantier && { adresseChantier: data.adresseChantier }),
+      ...(data.volumeBeton && { volumeBeton: parseFloat(data.volumeBeton) }),
+      ...(data.typeBeton && { typeBeton: data.typeBeton }),
+      ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
+      ...(data.observations !== undefined && { observations: data.observations }),
+      ...(data.montantCommande && { montantCommande: parseFloat(data.montantCommande) }),
+      ...calculsDB,
+    },
+  });
+
+  await prisma.activite.create({
+    data: { userId, type: 'MODIFICATION_COMMANDE', action: `Commande modifiée : ${commande.reference}`, details: { commandeId: id } },
+  });
+
+  return updated;
+};
+
+const validerCommande = async (commandeId, valideurId, commentaire) => {
+  const commande = await prisma.commande.findUnique({ where: { id: commandeId } });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  const etapeActuelle = WORKFLOW[commande.statut];
+  if (!etapeActuelle) throw Object.assign(new Error('Cette commande ne peut pas être validée'), { statusCode: 400 });
+
+  const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
+  if (valideur.role !== etapeActuelle.role && valideur.role !== 'PDG') {
+    throw Object.assign(new Error(`Seul un ${etapeActuelle.role} peut valider à cette étape`), { statusCode: 403 });
+  }
+
+  const [, updatedCommande] = await prisma.$transaction([
+    prisma.validation.create({
+      data: {
+        commandeId,
+        valideurId,
+        role: valideur.role,
+        statut: 'APPROUVE',
+        commentaire,
+        etape: etapeActuelle.etape,
+      },
+    }),
+    prisma.commande.update({
+      where: { id: commandeId },
+      data: { statut: etapeActuelle.next },
+    }),
+  ]);
+
+  await prisma.activite.create({
+    data: { userId: valideurId, type: 'VALIDATION_COMMANDE', action: `Commande validée (étape ${etapeActuelle.etape}) : ${commande.reference}`, details: { commandeId } },
+  });
+
+  // Notifier la prochaine étape ou le créateur + opérateurs
+  if (etapeActuelle.next === 'VALIDEE') {
+    await notifierUser(commande.createdById, commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} entièrement validée !`);
+    await notifierRole('OPERATEUR', commande, 'COMMANDE_VALIDEE', `Nouvelle commande en production : ${commande.reference} — ${commande.volumeBeton} m³ de ${commande.typeBeton}`);
+    await notifierRole('CHEF_DE_SITE', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le PDG — prête pour production`);
+  } else {
+    const nextRole = WORKFLOW[etapeActuelle.next]?.role;
+    if (nextRole) {
+      await notifierRole(nextRole, commande, 'VALIDATION_REQUISE', `Validation requise (étape ${WORKFLOW[etapeActuelle.next].etape}) : ${commande.reference}`);
+    }
+  }
+
+  return updatedCommande;
+};
+
+const rejeterCommande = async (commandeId, valideurId, motif) => {
+  const commande = await prisma.commande.findUnique({ where: { id: commandeId } });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  if (!motif) throw Object.assign(new Error('Motif de rejet obligatoire'), { statusCode: 400 });
+
+  const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
+  const etape = WORKFLOW[commande.statut];
+
+  await prisma.$transaction([
+    prisma.validation.create({
+      data: {
+        commandeId,
+        valideurId,
+        role: valideur.role,
+        statut: 'REJETE',
+        commentaire: motif,
+        etape: etape?.etape || 0,
+      },
+    }),
+    prisma.commande.update({
+      where: { id: commandeId },
+      data: { statut: 'REJETEE' },
+    }),
+  ]);
+
+  await notifierUser(commande.createdById, commande, 'COMMANDE_REJETEE', `Commande ${commande.reference} rejetée : ${motif}`);
+
+  await prisma.activite.create({
+    data: { userId: valideurId, type: 'REJET_COMMANDE', action: `Commande rejetée : ${commande.reference} - ${motif}`, details: { commandeId } },
+  });
+
+  return { success: true };
+};
+
+const getStatistiques = async () => {
+  const [total, enAttente, validees, rejetees, enProduction, livrees] = await prisma.$transaction([
+    prisma.commande.count(),
+    prisma.commande.count({ where: { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_PDG'] } } }),
+    prisma.commande.count({ where: { statut: 'VALIDEE' } }),
+    prisma.commande.count({ where: { statut: 'REJETEE' } }),
+    prisma.commande.count({ where: { statut: 'EN_PRODUCTION' } }),
+    prisma.commande.count({ where: { statut: 'LIVREE' } }),
+  ]);
+
+  const chiffreAffaires = await prisma.commande.aggregate({
+    where: { statut: { in: ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'] } },
+    _sum: { montantCommande: true, coutTotal: true, margePrevisionnelle: true },
+  });
+
+  const commandesMois = await prisma.commande.findMany({
+    where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+    select: { volumeBeton: true, montantCommande: true, statut: true },
+  });
+
+  return {
+    total, enAttente, validees, rejetees, enProduction, livrees,
+    chiffreAffaires: chiffreAffaires._sum.montantCommande || 0,
+    coutTotal: chiffreAffaires._sum.coutTotal || 0,
+    margeTotale: chiffreAffaires._sum.margePrevisionnelle || 0,
+    commandesMois: commandesMois.length,
+    volumeMois: commandesMois.reduce((s, c) => s + c.volumeBeton, 0),
+  };
+};
+
+const notifierRole = async (role, commande, type, message) => {
+  const users = await prisma.user.findMany({ where: { role, isActive: true } });
+  for (const u of users) {
+    const notif = await prisma.notification.create({
+      data: { userId: u.id, commandeId: commande.id, titre: type, message, type },
+    });
+    emitToUser(u.id, 'notification:nouvelle', notif);
+  }
+};
+
+const notifierUser = async (userId, commande, type, message) => {
+  const notif = await prisma.notification.create({
+    data: { userId, commandeId: commande.id, titre: type, message, type },
+  });
+  emitToUser(userId, 'notification:nouvelle', notif);
+};
+
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques };

@@ -1,0 +1,725 @@
+// AMP BÉTON ERP — Schéma complet Phase 1 + Phase 2
+// Supabase PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ═══════════════════════════════════════════════════════
+// ÉNUMÉRATIONS
+// ═══════════════════════════════════════════════════════
+
+enum Role {
+  PDG
+  SECRETAIRE
+  CHEF_DE_SITE
+  COMPTABLE
+  OPERATEUR
+}
+
+enum StatutCommande {
+  BROUILLON
+  EN_ATTENTE_SECRETAIRE
+  EN_ATTENTE_CHEF_SITE
+  EN_ATTENTE_PDG
+  VALIDEE
+  REJETEE
+  EN_PRODUCTION
+  LIVREE
+  ANNULEE
+}
+
+enum StatutValidation {
+  APPROUVE
+  REJETE
+  EN_ATTENTE
+}
+
+enum TypeNotification {
+  NOUVELLE_COMMANDE
+  VALIDATION_REQUISE
+  COMMANDE_VALIDEE
+  COMMANDE_REJETEE
+  COMMANDE_EN_PRODUCTION
+  COMMANDE_LIVREE
+  FORMULATION_CREEE
+  FORMULATION_MODIFIEE
+  STOCK_FAIBLE
+  STOCK_CRITIQUE
+  PANNE_EQUIPEMENT
+  PAIEMENT_RECU
+  PAIEMENT_RETARD
+  PRODUCTION_DEMARREE
+  PRODUCTION_TERMINEE
+  INFO
+  ALERTE
+}
+
+enum TypeActivite {
+  CONNEXION
+  DECONNEXION
+  CREATION_COMMANDE
+  MODIFICATION_COMMANDE
+  VALIDATION_COMMANDE
+  REJET_COMMANDE
+  CREATION_FORMULATION
+  MODIFICATION_FORMULATION
+  GENERATION_PDF
+  DEMARRAGE_PRODUCTION
+  FIN_PRODUCTION
+  MOUVEMENT_STOCK
+  MAINTENANCE_EQUIPEMENT
+  PAIEMENT_ENREGISTRE
+  AUTRE
+}
+
+// Phase 2 Enums
+enum StatutProduction {
+  EN_ATTENTE
+  EN_COURS
+  CHARGEMENT
+  LIVRAISON
+  TERMINE
+  ANNULE
+}
+
+enum TypeMatiere {
+  CIMENT
+  SABLE
+  GRAVIER_515
+  GRAVIER_1525
+  EAU
+  HYDROFUGE
+  POWERFLOW
+  GASOIL
+  AUTRE
+}
+
+enum TypeMouvement {
+  ENTREE_ACHAT
+  ENTREE_RETOUR
+  SORTIE_PRODUCTION
+  SORTIE_PERTE
+  SORTIE_AUTRE
+  INVENTAIRE
+  AJUSTEMENT
+}
+
+enum TypeEquipement {
+  TOUPIE
+  POMPE_BETON
+  CHARGEUR
+  GROUPE_ELECTROGENE
+  CENTRALE_BETON
+  CAMION
+  AUTRE
+}
+
+enum StatutEquipement {
+  DISPONIBLE
+  EN_SERVICE
+  MAINTENANCE
+  PANNE
+  HORS_SERVICE
+}
+
+enum TypeMaintenance {
+  PREVENTIVE
+  CORRECTIVE
+  REVISION
+  REPARATION
+}
+
+enum StatutLivraison {
+  PLANIFIEE
+  EN_ROUTE
+  LIVREE
+  RETARD
+  ANNULEE
+}
+
+enum ModePaiement {
+  ESPECE
+  VIREMENT
+  CHEQUE
+  CREDIT_CLIENT
+  MOBILE_MONEY
+}
+
+enum StatutPaiement {
+  EN_ATTENTE
+  PARTIEL
+  PAYE
+  RETARD
+  ANNULE
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 1 — UTILISATEURS & AUTH
+// ═══════════════════════════════════════════════════════
+
+model User {
+  id           String    @id @default(cuid())
+  nom          String
+  prenom       String
+  email        String    @unique
+  password     String
+  role         Role
+  telephone    String?
+  avatar       String?
+  isActive     Boolean   @default(true)
+  refreshToken String?   @db.Text
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Phase 1
+  commandes              Commande[]
+  validations            Validation[]
+  notifications          Notification[]
+  activites              Activite[]
+  formulationsCreees     Formulation[]              @relation("FormulateurCreateur")
+  formulationsModifiees  FormulationHistorique[]
+
+  // Phase 2
+  productionsDemarrees   Production[]               @relation("ProductionOperateur")
+  maintenances           MaintenanceEquipement[]
+  paiementsEnregistres   Paiement[]
+  mouvementsStock        MouvementStock[]
+
+  @@map("users")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 1 — FORMULATIONS
+// ═══════════════════════════════════════════════════════
+
+model Formulation {
+  id          String  @id @default(cuid())
+  nom         String
+  typeBeton   String  @unique
+  description String?
+  version     Int     @default(1)
+  isActive    Boolean @default(true)
+
+  ciment      Float
+  sable       Float
+  gravier515  Float
+  gravier1525 Float
+  eau         Float
+  hydrofuge   Float  @default(0)
+  powerflow   Float  @default(0)
+
+  prixCiment      Float
+  prixSable       Float
+  prixGravier515  Float
+  prixGravier1525 Float
+  prixEau         Float @default(0)
+  prixHydrofuge   Float @default(0)
+  prixPowerflow   Float @default(0)
+  coutUnitaire    Float
+
+  amortToupie      Float @default(6648)
+  amortPompe       Float @default(33300)
+  amortCentrale    Float @default(17200)
+  amortGroupe      Float @default(7500)
+  amortChargeuse   Float @default(45550)
+
+  hToupie    Float @default(13.2)
+  hPompe     Float @default(7.0)
+  hCentrale  Float @default(4.0)
+  hGroupe    Float @default(5.0)
+  hChargeuse Float @default(5.0)
+
+  gasoilGroupe   Float @default(25)
+  gasoilToupie   Float @default(600)
+  gasoilChargeur Float @default(230)
+  gasoilPompe    Float @default(250)
+
+  createdById String
+  createdBy   User   @relation("FormulateurCreateur", fields: [createdById], references: [id])
+
+  commandes  Commande[]
+  historique FormulationHistorique[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("formulations")
+}
+
+model FormulationHistorique {
+  id            String      @id @default(cuid())
+  formulationId String
+  formulation   Formulation @relation(fields: [formulationId], references: [id], onDelete: Cascade)
+  version       Int
+  donnees       Json
+  motifModif    String?
+  modifiePar    String
+  modificateur  User        @relation(fields: [modifiePar], references: [id])
+  createdAt     DateTime    @default(now())
+
+  @@map("formulations_historique")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 1 — COMMANDES
+// ═══════════════════════════════════════════════════════
+
+model Commande {
+  id              String         @id @default(cuid())
+  reference       String         @unique
+  nomClient       String
+  telephone       String
+  adresseChantier String
+  volumeBeton     Float
+  typeBeton       String
+  dateLivraison   DateTime
+  observations    String?        @db.Text
+  statut          StatutCommande @default(BROUILLON)
+
+  formulationId String?
+  formulation   Formulation? @relation(fields: [formulationId], references: [id])
+
+  // Calculs automatiques
+  totalCiment      Float?
+  totalGravier515  Float?
+  totalGravier1525 Float?
+  totalSable       Float?
+  totalEau         Float?
+  totalHydrofuge   Float?
+  totalPowerflow   Float?
+  totalGasoil      Float?
+
+  coutMateriaux     Float?
+  coutGasoil        Float?
+  coutAmortissement Float?
+  coutPersonnel     Float?
+  coutTotal         Float?
+  coutUnitaire      Float?
+  montantCommande   Float?
+  margePrevisionnelle Float?
+  tauxMarge         Float?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  // Phase 1
+  validations   Validation[]
+  notifications Notification[]
+
+  // Phase 2
+  productions Production[]
+  livraisons  Livraison[]
+  paiements   Paiement[]
+
+  // Financier Phase 2
+  montantPaye       Float?   @default(0)
+  montantRestant    Float?
+  depensesReelles   Float?
+  beneficeNetReel   Float?
+  tauxMargeReel     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("commandes")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 1 — VALIDATIONS, NOTIFICATIONS, ACTIVITÉS
+// ═══════════════════════════════════════════════════════
+
+model Validation {
+  id          String           @id @default(cuid())
+  commandeId  String
+  commande    Commande         @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+  valideurId  String
+  valideur    User             @relation(fields: [valideurId], references: [id])
+  role        Role
+  statut      StatutValidation @default(EN_ATTENTE)
+  commentaire String?          @db.Text
+  etape       Int
+  createdAt   DateTime         @default(now())
+
+  @@map("validations")
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commandeId String?
+  commande   Commande?        @relation(fields: [commandeId], references: [id], onDelete: SetNull)
+  titre      String
+  message    String           @db.Text
+  type       TypeNotification
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+model Activite {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  type      TypeActivite
+  action    String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime     @default(now())
+
+  @@map("activites")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — PRODUCTION BÉTON
+// ═══════════════════════════════════════════════════════
+
+model Production {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  commandeId     String
+  commande       Commande        @relation(fields: [commandeId], references: [id])
+  statut         StatutProduction @default(EN_ATTENTE)
+
+  volumePlanifie Float
+  volumeProduit  Float           @default(0)
+
+  dateDebutPrevue DateTime?
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  dureeHeures     Float?
+
+  // Consommations réelles (remplies à la fin)
+  cimentConsomme     Float?
+  sableConsomme      Float?
+  gravier515Consomme Float?
+  gravier1525Consomme Float?
+  eauConsommee       Float?
+  hydrofugeConsomme  Float?
+  powerflowConsomme  Float?
+  gasoilConsomme     Float?
+
+  // Coûts réels
+  coutMatieres      Float?
+  coutCarburant     Float?
+  coutAmortissement Float?
+  coutMaintenance   Float?
+  coutPersonnel     Float?
+  coutTotal         Float?
+
+  // Rendement
+  rendement     Float? // % de réalisation
+  observations  String? @db.Text
+
+  operateurId String
+  operateur   User   @relation("ProductionOperateur", fields: [operateurId], references: [id])
+
+  equipements     ProductionEquipement[]
+  livraisons      Livraison[]
+  mouvementsStock MouvementStock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("productions")
+}
+
+model ProductionEquipement {
+  id              String     @id @default(cuid())
+  productionId    String
+  production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  equipementId    String
+  equipement      Equipement @relation(fields: [equipementId], references: [id])
+  heuresUtilisees Float      @default(0)
+  coutAmortissement Float    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([productionId, equipementId])
+  @@map("production_equipements")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — GESTION DES STOCKS
+// ═══════════════════════════════════════════════════════
+
+model StockMatiere {
+  id               String      @id @default(cuid())
+  materiau         TypeMatiere @unique
+  designation      String
+  quantite         Float       @default(0)
+  unite            String      // kg, m³, L, T
+  seuilAlerte      Float       // déclenche alerte jaune
+  seuilCritique    Float       // déclenche alerte rouge
+  prixUnitaire     Float       @default(0)
+  fournisseur      String?
+  dernierMouvement DateTime?
+
+  mouvements MouvementStock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("stock_matieres")
+}
+
+model MouvementStock {
+  id             String        @id @default(cuid())
+  stockId        String
+  stock          StockMatiere  @relation(fields: [stockId], references: [id])
+  type           TypeMouvement
+  quantite       Float
+  quantiteAvant  Float
+  quantiteApres  Float
+  prixUnitaire   Float?
+  montantTotal   Float?
+  motif          String?
+  reference      String?       // N° bon de livraison, facture, etc.
+  commandeId     String?
+  productionId   String?
+  production     Production?   @relation(fields: [productionId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("mouvements_stock")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — ÉQUIPEMENTS & AMORTISSEMENTS
+// ═══════════════════════════════════════════════════════
+
+model Equipement {
+  id            String           @id @default(cuid())
+  nom           String
+  code          String           @unique
+  type          TypeEquipement
+  marque        String?
+  modele        String?
+  numeroSerie   String?
+  anneeAchat    Int?
+  statut        StatutEquipement @default(DISPONIBLE)
+
+  // Amortissement
+  coutAcquisition Float
+  dureeVieHeures  Float
+  heuresUtilisees Float   @default(0)
+  coutHoraire     Float   // = coutAcquisition / dureeVieHeures
+  valeurActuelle  Float   // = coutAcquisition - (heuresUtilisees * coutHoraire)
+  tauxAmortissement Float @default(0) // %
+
+  // Maintenance préventive
+  heuresRevision     Float?    // révision toutes les X heures
+  prochainRevisionH  Float?    // à quelle heure la prochaine révision
+  prochaineRevision  DateTime?
+  derniereRevision   DateTime?
+
+  // Carburant (pour équipements motorisés)
+  consoCarburantHeure Float? // litres/heure
+
+  isActive Boolean @default(true)
+
+  productions  ProductionEquipement[]
+  maintenances MaintenanceEquipement[]
+  livraisons   Livraison[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("equipements")
+}
+
+model MaintenanceEquipement {
+  id           String          @id @default(cuid())
+  equipementId String
+  equipement   Equipement      @relation(fields: [equipementId], references: [id])
+  type         TypeMaintenance
+  description  String          @db.Text
+  cout         Float           @default(0)
+  heuresArret  Float?
+  dateDebut    DateTime
+  dateFin      DateTime?
+  technicien   String?
+  fournisseur  String?
+  facture      String?
+  observations String?
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("maintenances_equipements")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — LIVRAISONS
+// ═══════════════════════════════════════════════════════
+
+model Livraison {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  productionId   String
+  production     Production      @relation(fields: [productionId], references: [id])
+  commandeId     String
+  commande       Commande        @relation(fields: [commandeId], references: [id])
+
+  toupieId   String?
+  toupie     Equipement? @relation(fields: [toupieId], references: [id])
+  chauffeur  String?
+  telephone  String?
+
+  volumePlanifie Float
+  volumeReel     Float?
+  statut         StatutLivraison @default(PLANIFIEE)
+
+  heureDepart    DateTime?
+  heureArrivee   DateTime?
+  dureeTrajet    Float?          // minutes
+
+  adresseChantier String?
+  latitude        Float?
+  longitude       Float?
+
+  bonLivraison String?
+  observations String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("livraisons")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — PAIEMENTS
+// ═══════════════════════════════════════════════════════
+
+model Paiement {
+  id           String         @id @default(cuid())
+  reference    String         @unique
+  commandeId   String
+  commande     Commande       @relation(fields: [commandeId], references: [id])
+  montant      Float
+  modePaiement ModePaiement
+  statut       StatutPaiement @default(EN_ATTENTE)
+  reference_ext String?       // N° chèque, virement, etc.
+  banque       String?
+  dateEcheance DateTime?
+  datePaiement DateTime?
+  notes        String?
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("paiements")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 3 — ALERTES INTELLIGENTES
+// ═══════════════════════════════════════════════════════
+
+enum TypeAlerte {
+  STOCK_FAIBLE
+  STOCK_CRITIQUE
+  PAIEMENT_RETARD
+  EQUIPEMENT_REVISION
+  EQUIPEMENT_PANNE
+  PRODUCTION_ANOMALIE
+  CONSOMMATION_ANORMALE
+  MARGE_FAIBLE
+  BUDGET_DEPASSE
+  CLIENT_IMPAYE
+}
+
+enum NiveauAlerte {
+  CRITIQUE
+  AVERTISSEMENT
+  INFO
+}
+
+model AlerteIntelligente {
+  id         String       @id @default(cuid())
+  type       TypeAlerte
+  niveau     NiveauAlerte
+  titre      String
+  message    String       @db.Text
+  entiteType String?
+  entiteId   String?
+  donnees    Json?
+  resolu     Boolean      @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+  autoGenere Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@map("alertes_intelligentes")
+}
+
+model BudgetPrevisionnel {
+  id           String   @id @default(cuid())
+  mois         Int
+  annee        Int
+  caCible      Float    @default(0)
+  depensesCible Float   @default(0)
+  volumeCible  Float    @default(0)
+  beneficeCible Float   @default(0)
+  cimentPrev   Float    @default(0)
+  gasoilPrev   Float    @default(0)
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([mois, annee])
+  @@map("budgets_previsionnels")
+}
+
+model KPISnapshot {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @default(now())
+  caJour    Float    @default(0)
+  caMonth   Float    @default(0)
+  benefice  Float    @default(0)
+  volume    Float    @default(0)
+  commandes Int      @default(0)
+  stockVal  Float    @default(0)
+  encaisse  Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("kpi_snapshots")
+}
+
+// ═══════════════════════════════════════════════════════
+// PHASE 2 — CONSOMMATION CARBURANT
+// ═══════════════════════════════════════════════════════
+
+model ConsoCarburant {
+  id           String    @id @default(cuid())
+  date         DateTime
+  equipementId String?
+  nomEquipement String?
+  litres       Float
+  prixLitre    Float     @default(675)
+  montantTotal Float
+  productionId String?
+  commandeId   String?
+  motif        String?
+  fournisseur  String?
+  bonNumero    String?
+
+  createdAt DateTime @default(now())
+
+  @@map("conso_carburant")
+}
