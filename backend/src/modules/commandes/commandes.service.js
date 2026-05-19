@@ -1,16 +1,13 @@
-const { PrismaClient } = require('@prisma/client');
 const { calculerBesoinsCommande, genererReferenceCommande } = require('../../utils/calculations');
 const { emitToUser, emitToRole } = require('../../config/socket');
 const logger = require('../../config/logger');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 // Ordre du workflow de validation
 const WORKFLOW = {
-  BROUILLON: { next: 'EN_ATTENTE_SECRETAIRE', role: 'SECRETAIRE', etape: 1 },
-  EN_ATTENTE_SECRETAIRE: { next: 'EN_ATTENTE_CHEF_SITE', role: 'CHEF_DE_SITE', etape: 2 },
-  EN_ATTENTE_CHEF_SITE: { next: 'EN_ATTENTE_PDG', role: 'PDG', etape: 3 },
-  EN_ATTENTE_PDG: { next: 'VALIDEE', role: null, etape: null },
+  EN_ATTENTE_SECRETAIRE: { next: 'EN_ATTENTE_CHEF_SITE', role: 'SECRETAIRE', etape: 1 },
+  EN_ATTENTE_CHEF_SITE:  { next: 'EN_ATTENTE_PDG',       role: 'CHEF_DE_SITE', etape: 2 },
+  EN_ATTENTE_PDG:        { next: 'VALIDEE',               role: 'PDG',          etape: 3 },
 };
 
 const listerCommandes = async (user, filters = {}) => {
@@ -69,11 +66,11 @@ const creerCommande = async (data, userId) => {
 
   if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
 
-  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0);
+  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0);
   const reference = genererReferenceCommande();
 
-  // fraisRestauration n'est pas un champ Prisma — on l'exclut du spread
-  const { fraisRestauration, ...calculsDB } = calculs;
+  // Exclure les champs non-Prisma du spread
+  const { fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges, coutCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow, ...calculsDB } = calculs;
 
   const commande = await prisma.commande.create({
     data: {
@@ -89,6 +86,7 @@ const creerCommande = async (data, userId) => {
       formulationId: formulation.id,
       createdById: userId,
       montantCommande: data.montantCommande ? parseFloat(data.montantCommande) : null,
+      distanceLivraison: data.distanceLivraison ? parseFloat(data.distanceLivraison) : 0,
       ...calculsDB,
     },
     include: { createdBy: { select: { nom: true, prenom: true } }, formulation: true },
@@ -120,10 +118,11 @@ const modifierCommande = async (id, data, userId) => {
       where: { id: data.formulationId || commande.formulationId },
     });
     if (formulation) {
-      const { fraisRestauration, ...rest } = calculerBesoinsCommande(
+      const { fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges, coutCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow, ...rest } = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
-        data.montantCommande || commande.montantCommande || 0
+        data.montantCommande || commande.montantCommande || 0,
+        data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0)
       );
       calculsDB = rest;
     }
@@ -140,6 +139,7 @@ const modifierCommande = async (id, data, userId) => {
       ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
       ...(data.observations !== undefined && { observations: data.observations }),
       ...(data.montantCommande && { montantCommande: parseFloat(data.montantCommande) }),
+      ...(data.distanceLivraison !== undefined && { distanceLivraison: parseFloat(data.distanceLivraison) }),
       ...calculsDB,
     },
   });
@@ -205,8 +205,13 @@ const rejeterCommande = async (commandeId, valideurId, motif) => {
 
   if (!motif) throw Object.assign(new Error('Motif de rejet obligatoire'), { statusCode: 400 });
 
-  const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
   const etape = WORKFLOW[commande.statut];
+  if (!etape) throw Object.assign(new Error('Cette commande ne peut pas être rejetée'), { statusCode: 400 });
+
+  const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
+  if (valideur.role !== etape.role && valideur.role !== 'PDG') {
+    throw Object.assign(new Error(`Seul un ${etape.role} peut rejeter à cette étape`), { statusCode: 403 });
+  }
 
   await prisma.$transaction([
     prisma.validation.create({

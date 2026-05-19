@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const { emitToAll, emitToUser } = require('../../config/socket');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const genRef = () => `LIV-${Date.now().toString().slice(-8)}`;
 
@@ -50,18 +48,40 @@ const getOne = async (id) => {
 };
 
 const planifier = async (data, userId) => {
+  // Normalisation des noms de champs (compat frontend)
+  const toupieId = data.toupieId || data.equipementId || null;
+  const heurePlanifiee = data.heureDepart || data.datePlanifiee;
+  const adresse = data.adresseChantier || data.adresseLivraison;
+  const observations = data.observations || data.notes;
+
+  // Charger la commande pour récupérer volume + adresse + productionId
+  const commande = await prisma.commande.findUnique({
+    where: { id: data.commandeId },
+    include: {
+      productions: {
+        where: { statut: { in: ['EN_COURS', 'TERMINE'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  const productionId = data.productionId || commande.productions[0]?.id;
+  if (!productionId) throw Object.assign(new Error('Aucune production en cours pour cette commande — démarrez la production d\'abord'), { statusCode: 400 });
+
   return prisma.livraison.create({
     data: {
       reference: genRef(),
-      productionId: data.productionId,
+      productionId,
       commandeId: data.commandeId,
-      toupieId: data.toupieId,
-      chauffeur: data.chauffeur,
-      telephone: data.telephone,
-      volumePlanifie: parseFloat(data.volumePlanifie),
-      heureDepart: data.heureDepart ? new Date(data.heureDepart) : null,
-      adresseChantier: data.adresseChantier,
-      observations: data.observations,
+      toupieId: toupieId || undefined,
+      chauffeur: data.chauffeur || null,
+      telephone: data.telephone || null,
+      volumePlanifie: parseFloat(data.volumePlanifie) || commande.volumeBeton,
+      heureDepart: heurePlanifiee ? new Date(heurePlanifiee) : null,
+      adresseChantier: adresse || commande.adresseChantier,
+      observations: observations || null,
     },
   });
 };
@@ -108,6 +128,21 @@ const confirmerLivraison = async (id, data, userId) => {
   // Libérer la toupie
   if (liv.toupieId) {
     await prisma.equipement.update({ where: { id: liv.toupieId }, data: { statut: 'DISPONIBLE' } });
+  }
+
+  // Calculer le volume total livré pour cette commande
+  const toutesLivraisons = await prisma.livraison.findMany({
+    where: { commandeId: liv.commandeId, statut: 'LIVREE' },
+    select: { volumeReel: true },
+  });
+  const volumeTotalLivre = toutesLivraisons.reduce((s, l) => s + (l.volumeReel || 0), 0);
+
+  // Marquer la commande LIVREE seulement quand tout le volume commandé est livré
+  if (volumeTotalLivre >= liv.commande.volumeBeton) {
+    await prisma.commande.update({
+      where: { id: liv.commandeId },
+      data: { statut: 'LIVREE' },
+    });
   }
 
   emitToUser(liv.commande.createdById, 'notification:nouvelle', {

@@ -18,7 +18,7 @@ const STATUT_CFG = {
 };
 
 const PlanifierModal = ({ onSuccess, onClose }) => {
-  const [form, setForm] = useState({ commandeId: '', equipementId: '', chauffeur: '', datePlanifiee: '', adresseLivraison: '', notes: '' });
+  const [form, setForm] = useState({ commandeId: '', toupieId: '', chauffeur: '', heureDepart: '', adresseChantier: '', observations: '' });
   const [loading, setLoading] = useState(false);
 
   const { data: commandes } = useQuery({
@@ -33,9 +33,15 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
     select: (r) => r.data.data.filter((e) => e.statut === 'DISPONIBLE' || e.statut === 'EN_SERVICE'),
   });
 
+  const handleCommandeChange = (e) => {
+    const id = e.target.value;
+    const cmd = commandes?.find((c) => c.id === id);
+    setForm({ ...form, commandeId: id, adresseChantier: cmd?.adresseChantier || '' });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.commandeId || !form.datePlanifiee) return toast.error('Commande et date requis');
+    if (!form.commandeId) return toast.error('Commande requise');
     setLoading(true);
     try {
       await livraisonsAPI.planifier(form);
@@ -53,17 +59,17 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Commande *</label>
-            <select value={form.commandeId} onChange={(e) => setForm({ ...form, commandeId: e.target.value })} className="amp-input text-sm" required>
+            <select value={form.commandeId} onChange={handleCommandeChange} className="amp-input text-sm" required>
               <option value="">Sélectionner une commande...</option>
               {commandes?.map((c) => (
-                <option key={c.id} value={c.id}>{c.reference} — {c.nomClient} — {c.volumeCommande} m³</option>
+                <option key={c.id} value={c.id}>{c.reference} — {c.nomClient} — {c.volumeBeton} m³</option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Toupie</label>
-              <select value={form.equipementId} onChange={(e) => setForm({ ...form, equipementId: e.target.value })} className="amp-input text-sm">
+              <select value={form.toupieId} onChange={(e) => setForm({ ...form, toupieId: e.target.value })} className="amp-input text-sm">
                 <option value="">Choisir une toupie...</option>
                 {toupies?.map((t) => <option key={t.id} value={t.id}>{t.nom} ({t.statut})</option>)}
               </select>
@@ -74,16 +80,16 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Date et heure prévue *</label>
-            <input type="datetime-local" value={form.datePlanifiee} onChange={(e) => setForm({ ...form, datePlanifiee: e.target.value })} className="amp-input text-sm" required />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Date et heure prévue</label>
+            <input type="datetime-local" value={form.heureDepart} onChange={(e) => setForm({ ...form, heureDepart: e.target.value })} className="amp-input text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Adresse de livraison</label>
-            <input value={form.adresseLivraison} onChange={(e) => setForm({ ...form, adresseLivraison: e.target.value })} className="amp-input text-sm" placeholder="Adresse du chantier" />
+            <input value={form.adresseChantier} onChange={(e) => setForm({ ...form, adresseChantier: e.target.value })} className="amp-input text-sm" placeholder="Adresse du chantier" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="amp-input text-sm resize-none" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Observations</label>
+            <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={2} className="amp-input text-sm resize-none" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={loading} className="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-60">
@@ -98,7 +104,7 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
 };
 
 const LivrerModal = ({ livraison, onSuccess, onClose }) => {
-  const [form, setForm] = useState({ volumeLivre: livraison.commande?.volumeCommande || '', observations: '' });
+  const [form, setForm] = useState({ volumeReel: livraison.volumePlanifie || '', observations: '' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -121,7 +127,7 @@ const LivrerModal = ({ livraison, onSuccess, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Volume livré (m³) *</label>
-            <input type="number" step="0.1" value={form.volumeLivre} onChange={(e) => setForm({ ...form, volumeLivre: e.target.value })} className="amp-input text-sm" required />
+            <input type="number" step="0.1" value={form.volumeReel} onChange={(e) => setForm({ ...form, volumeReel: e.target.value })} className="amp-input text-sm" required />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Observations</label>
@@ -165,19 +171,18 @@ const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, canEdit }) => {
               </span>
             </div>
             <p className="font-bold text-gray-800 mt-0.5">{liv.commande?.nomClient}</p>
-            <p className="text-xs text-gray-500">{liv.commande?.reference} · {liv.commande?.volumeCommande} m³</p>
-            {liv.adresseLivraison && (
-              <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><MapPin size={10} />{liv.adresseLivraison}</p>
+            <p className="text-xs text-gray-500">{liv.commande?.reference} · {liv.volumePlanifie} m³</p>
+            {liv.adresseChantier && (
+              <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><MapPin size={10} />{liv.adresseChantier}</p>
             )}
           </div>
         </div>
         <div className="text-right space-y-1">
-          <p className="text-xs text-gray-400 flex items-center gap-1 justify-end"><Clock size={10} /> Prévu : {formatDateTime(liv.datePlanifiee)}</p>
+          {liv.heureDepart && <p className="text-xs text-gray-400 flex items-center gap-1 justify-end"><Clock size={10} /> Prévu : {formatDateTime(liv.heureDepart)}</p>}
           {liv.chauffeur && <p className="text-xs text-gray-500">Chauffeur : <span className="font-medium">{liv.chauffeur}</span></p>}
-          {liv.equipement && <p className="text-xs text-gray-500">Toupie : <span className="font-medium">{liv.equipement.nom}</span></p>}
-          {liv.dateDepart && <p className="text-xs text-gray-400">Départ : {formatDateTime(liv.dateDepart)}</p>}
-          {liv.dateLivraison && <p className="text-xs text-green-600 font-medium">Livré : {formatDateTime(liv.dateLivraison)}</p>}
-          {liv.volumeLivre && <p className="text-xs font-bold text-gray-700">Volume livré : {liv.volumeLivre} m³</p>}
+          {liv.toupie && <p className="text-xs text-gray-500">Toupie : <span className="font-medium">{liv.toupie.nom}</span></p>}
+          {liv.heureArrivee && <p className="text-xs text-green-600 font-medium">Livré : {formatDateTime(liv.heureArrivee)}</p>}
+          {liv.volumeReel && <p className="text-xs font-bold text-gray-700">Volume livré : {liv.volumeReel} m³</p>}
         </div>
       </div>
 
@@ -266,7 +271,7 @@ const Livraisons = () => {
             { label: 'Planifiées', value: livraisons.filter((l) => l.statut === 'PLANIFIEE').length, color: 'text-blue-700' },
             { label: 'En route', value: livraisons.filter((l) => l.statut === 'EN_ROUTE').length, color: 'text-amber-700' },
             { label: 'Livrées', value: livraisons.filter((l) => l.statut === 'LIVREE').length, color: 'text-green-700' },
-            { label: 'Volume livré (m³)', value: livraisons.filter((l) => l.volumeLivre).reduce((a, l) => a + (l.volumeLivre || 0), 0).toLocaleString('fr-FR'), color: 'text-gray-800' },
+            { label: 'Volume livré (m³)', value: livraisons.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toLocaleString('fr-FR'), color: 'text-gray-800' },
           ].map(({ label, value, color }) => (
             <div key={label} className="amp-stat-card">
               <p className="text-sm text-gray-500">{label}</p>

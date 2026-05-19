@@ -4,9 +4,7 @@ const bcrypt = require('bcryptjs');
 const { authenticate } = require('../../middleware/auth');
 const { requirePermission, requireRoles } = require('../../middleware/rbac');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 router.use(authenticate);
 
 router.get('/', requirePermission('user:read'), asyncHandler(async (req, res) => {

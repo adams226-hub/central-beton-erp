@@ -112,15 +112,26 @@ const RapportBenefices = ({ dateDebut, dateFin }) => {
   });
 
   const handleExport = async (format) => {
+    const toastId = toast.loading(`Génération ${format === 'excel' ? 'Excel' : 'PDF'} en cours...`);
     try {
+      const mimeType = format === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf';
+      const ext = format === 'excel' ? 'xlsx' : 'pdf';
       const res = await rapportsAPI.exportBenefices({ dateDebut, dateFin, format });
-      const url = URL.createObjectURL(new Blob([res.data]));
+      const url = URL.createObjectURL(new Blob([res.data], { type: mimeType }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `benefices_${dateDebut}_${dateFin}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.download = `AMP-BETON_benefices_${dateDebut || 'debut'}_${dateFin || 'fin'}.${ext}`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch { toast.error('Erreur export'); }
+      toast.success(`${format === 'excel' ? 'Excel' : 'PDF'} téléchargé avec succès`, { id: toastId });
+    } catch (err) {
+      const msg = err.response?.data?.message || `Erreur lors de l'export ${format}`;
+      toast.error(msg, { id: toastId });
+    }
   };
 
   if (isLoading) return <div className="py-6 text-center text-gray-400 text-sm">Chargement...</div>;

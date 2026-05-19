@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const { emitToRole } = require('../../config/socket');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const lister = async (filters = {}) => {
   const where = {};

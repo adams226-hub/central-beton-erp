@@ -13,6 +13,7 @@ router.get('/financier', ctrl.rapportFinancier);
 router.get('/stocks', ctrl.rapportStocks);
 router.get('/equipements', ctrl.rapportEquipements);
 router.get('/benefices', ctrl.rapportBenefices);
+router.get('/benefices/export', ctrl.exportBenefices);
 router.get('/benefices/commande/:id', ctrl.beneficeParCommande);
 
 module.exports = router;

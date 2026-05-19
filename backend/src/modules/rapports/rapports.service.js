@@ -1,6 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const getDateRange = (debut, fin) => {
   const d = debut ? new Date(debut) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);

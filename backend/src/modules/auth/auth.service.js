@@ -1,9 +1,7 @@
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
 const logger = require('../../config/logger');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const login = async (email, password, ip, userAgent) => {
   const user = await prisma.user.findUnique({ where: { email } });

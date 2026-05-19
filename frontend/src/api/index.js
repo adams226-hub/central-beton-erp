@@ -123,5 +123,5 @@ export const rapportsAPI = {
   rapportProduction: (params) => api.get('/rapports/production', { params }),
   rapportFinancier: (params) => api.get('/rapports/financier', { params }),
   rapportEquipements: (params) => api.get('/rapports/equipements', { params }),
-  exportBenefices: (params) => api.get('/rapports/benefices', { params, responseType: 'blob' }),
+  exportBenefices: (params) => api.get('/rapports/benefices/export', { params, responseType: 'blob' }),
 };

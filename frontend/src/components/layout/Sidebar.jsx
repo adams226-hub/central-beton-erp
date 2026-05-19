@@ -92,7 +92,7 @@ const Sidebar = () => {
               className="overflow-hidden whitespace-nowrap"
             >
               <p className="font-bold text-base leading-tight">AMP BÉTON</p>
-              <p className="text-amp-300 text-xs">ERP Industriel v3</p>
+              <p className="text-amp-300 text-xs"></p>
             </motion.div>
           )}
         </AnimatePresence>

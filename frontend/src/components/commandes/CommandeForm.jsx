@@ -16,6 +16,7 @@ const schema = z.object({
   volumeBeton: z.coerce.number().positive('Volume doit être positif'),
   typeBeton: z.string().min(1, 'Type béton requis'),
   dateLivraison: z.string().min(1, 'Date requise'),
+  distanceLivraison: z.coerce.number().min(0).optional(),
   montantCommande: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('Montant doit être positif').optional()
@@ -46,12 +47,13 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       volumeBeton: commande.volumeBeton,
       typeBeton: commande.typeBeton,
       dateLivraison: commande.dateLivraison?.split('T')[0],
+      distanceLivraison: commande.distanceLivraison || '',
       montantCommande: commande.montantCommande || '',
       observations: commande.observations || '',
     } : {},
   });
 
-  const [volume, typeBeton, montantCommande] = watch(['volumeBeton', 'typeBeton', 'montantCommande']);
+  const [volume, typeBeton, montantCommande, distanceLivraison] = watch(['volumeBeton', 'typeBeton', 'montantCommande', 'distanceLivraison']);
 
   // Auto-sélection de la formulation quand le type béton change
   useEffect(() => {
@@ -74,6 +76,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
           volume,
           formulationId,
           montantCommande: montantCommande || 0,
+          distanceLivraison: distanceLivraison || 0,
         });
         setCalculs(res.data.data);
         setOverrides({});
@@ -84,7 +87,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [volume, formulationId, montantCommande]);
+  }, [volume, formulationId, montantCommande, distanceLivraison]);
 
   const valeur = (key) => overrides[key] !== undefined ? overrides[key] : (calculs?.[key] ?? '');
   const setOverride = (key, val) => setOverrides((prev) => ({ ...prev, [key]: val === '' ? undefined : Number(val) }));
@@ -186,6 +189,14 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             {errors.dateLivraison && <p className="text-red-500 text-xs mt-1">{errors.dateLivraison.message}</p>}
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Distance livraison (km)
+              <span className="ml-1 text-xs text-gray-400">— affecte le prix transport</span>
+            </label>
+            <input {...register('distanceLivraison')} type="number" step="1" min="0" placeholder="Ex : 15" className="amp-input" />
+            {errors.distanceLivraison && <p className="text-red-500 text-xs mt-1">{errors.distanceLivraison.message}</p>}
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Montant vendu (FCFA)</label>
             <input {...register('montantCommande')} type="number" placeholder="Ex : 21 000 000" className="amp-input" />
             {errors.montantCommande && <p className="text-red-500 text-xs mt-1">{errors.montantCommande.message}</p>}
@@ -235,9 +246,9 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
               {[
                 { key: 'coutTotal', label: 'Coût production', highlight: true, money: true },
                 { key: 'coutUnitaire', label: 'Coût / m³', money: true },
-                { key: 'margePrevisionnelle', label: 'Marge prév.', green: (overrides.margePrevisionnelle ?? calculs.margePrevisionnelle) > 0, money: true },
-                { key: 'tauxMarge', label: 'Taux marge', unit: '%' },
-              ].map(({ key, label, highlight, green, money, unit }) => {
+                { key: 'margePrevisionnelle', label: 'Marge commerciale', green: (overrides.margePrevisionnelle ?? calculs.margePrevisionnelle) > 0, money: true },
+                { key: 'beneficeReel', label: 'Bénéfice réel net', green: (overrides.beneficeReel ?? calculs.beneficeReel) > 0, money: true, gold: (overrides.beneficeReel ?? calculs.beneficeReel) <= 0 },
+              ].map(({ key, label, highlight, green, gold, money, unit }) => {
                 const v = valeur(key);
                 return (
                   <div key={key} className={`rounded-lg p-2.5 border ${highlight ? 'border-blue-300 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
@@ -246,7 +257,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                       type="number"
                       value={v}
                       onChange={(e) => setOverride(key, e.target.value)}
-                      className={`w-full bg-transparent text-sm font-bold border-b border-dashed border-transparent hover:border-blue-300 focus:border-blue-400 focus:outline-none ${green ? 'text-green-600' : highlight ? 'text-blue-700' : 'text-gray-800'}`}
+                      className={`w-full bg-transparent text-sm font-bold border-b border-dashed border-transparent hover:border-blue-300 focus:border-blue-400 focus:outline-none ${green ? 'text-green-600' : gold ? 'text-amber-600' : highlight ? 'text-blue-700' : 'text-gray-800'}`}
                     />
                     {unit && !money && <p className="text-[9px] text-gray-400 mt-0.5">{unit}</p>}
                     {money && <p className="text-[9px] text-gray-400 mt-0.5">FCFA</p>}
@@ -312,7 +323,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                       <span className="font-medium">{formatMontant(valeur('coutMateriaux'))}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Coût gasoil</span>
+                      <span className="text-gray-500">Coût gasoil production</span>
                       <span className="font-medium">{formatMontant(valeur('coutGasoil'))}</span>
                     </div>
                     <div className="flex justify-between text-xs">
@@ -323,17 +334,42 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                       <span className="text-gray-500">Personnel</span>
                       <span className="font-medium">{formatMontant(valeur('coutPersonnel'))}</span>
                     </div>
+                    {valeur('fraisTransport') > 0 && (
+                      <div className="flex justify-between text-xs text-amber-700">
+                        <span>Transport livraison ({distanceLivraison} km)</span>
+                        <span className="font-medium">{formatMontant(valeur('fraisTransport'))}</span>
+                      </div>
+                    )}
                     <div className="border-t border-gray-200 pt-1.5 flex justify-between text-sm font-bold">
                       <span>Total production</span>
                       <span className="text-blue-700">{formatMontant(valeur('coutTotal'))}</span>
                     </div>
                     {montantCommande > 0 && (
-                      <div className="flex justify-between text-sm font-bold">
-                        <span>Marge</span>
-                        <span className={(valeur('margePrevisionnelle') > 0) ? 'text-green-600' : 'text-red-500'}>
-                          {formatMontant(valeur('margePrevisionnelle'))} ({valeur('tauxMarge')}%)
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex justify-between text-sm font-bold">
+                          <span>Marge commerciale</span>
+                          <span className={(valeur('margePrevisionnelle') > 0) ? 'text-green-600' : 'text-red-500'}>
+                            {formatMontant(valeur('margePrevisionnelle'))} ({valeur('tauxMarge')}%)
+                          </span>
+                        </div>
+                        <div className="border-t border-dashed border-gray-200 pt-1.5">
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Charges d'exploitation</p>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>Loyer central + frais généraux</span>
+                            <span>{formatMontant((valeur('fraisLoyer') || 0) + (valeur('fraisAutresCharges') || 0))}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>Impôts & taxes (5% CA)</span>
+                            <span>{formatMontant(valeur('fraisImpots'))}</span>
+                          </div>
+                        </div>
+                        <div className="border-t border-gray-200 pt-1.5 flex justify-between text-sm font-bold">
+                          <span>Bénéfice réel net</span>
+                          <span className={(valeur('beneficeReel') > 0) ? 'text-green-600' : 'text-red-500'}>
+                            {formatMontant(valeur('beneficeReel'))} ({valeur('tauxBeneficeReel')}%)
+                          </span>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>

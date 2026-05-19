@@ -1,6 +1,7 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const service = require('./commandes.service');
 const { generateDevis } = require('../../utils/pdf');
+const prisma = require('../../config/prisma');
 
 const listerCommandes = asyncHandler(async (req, res) => {
   const result = await service.listerCommandes(req.user, req.query);
@@ -39,22 +40,55 @@ const getStatistiques = asyncHandler(async (req, res) => {
 
 const genererPDF = asyncHandler(async (req, res) => {
   const commande = await service.getCommande(req.params.id);
+  const f = commande.formulation;
+  const v = commande.volumeBeton || 0;
+
+  // Recalcul des coûts matières individuels depuis la formulation stockée
+  const coutCiment    = f ? Math.round(((commande.totalCiment || 0) / 1000) * f.prixCiment) : 0;
+  const coutGravier515 = f ? Math.round((commande.totalGravier515 || 0) * f.prixGravier515) : 0;
+  const coutGravier1525= f ? Math.round((commande.totalGravier1525 || 0) * f.prixGravier1525) : 0;
+  const coutSable      = f ? Math.round((commande.totalSable || 0) * f.prixSable) : 0;
+  const coutPowerflow  = f ? Math.round((commande.totalPowerflow || 0) * (f.prixPowerflow || 1750)) : 0;
+
+  const fraisRestauration = Math.ceil(v / 200) * 12 * 1500;
+  const fraisTransport    = commande.fraisTransport || 0;
+  const distance          = commande.distanceLivraison || 0;
+
+  // Charges d'exploitation reconstituées
+  const fraisLoyer        = commande.chargesExploitation
+    ? Math.round(commande.chargesExploitation * 0.50)
+    : Math.round((500_000 / 200) * v);
+  const fraisAutresCharges= commande.chargesExploitation
+    ? Math.round(commande.chargesExploitation * 0.15)
+    : Math.round((150_000 / 200) * v);
+  const fraisImpots       = commande.chargesExploitation
+    ? commande.chargesExploitation - fraisLoyer - fraisAutresCharges
+    : Math.round((commande.montantCommande || 0) * 0.05);
+  const chargesExploitation = commande.chargesExploitation ||
+    fraisLoyer + fraisAutresCharges + fraisImpots;
+
   const calculs = {
-    totalCiment: commande.totalCiment,
+    totalCiment:     commande.totalCiment,
     totalGravier515: commande.totalGravier515,
-    totalGravier1525: commande.totalGravier1525,
-    totalSable: commande.totalSable,
-    totalPowerflow: commande.totalPowerflow,
-    totalGasoil: commande.totalGasoil,
-    coutMateriaux: commande.coutMateriaux,
-    coutGasoil: commande.coutGasoil,
+    totalGravier1525:commande.totalGravier1525,
+    totalSable:      commande.totalSable,
+    totalPowerflow:  commande.totalPowerflow,
+    totalGasoil:     commande.totalGasoil,
+    coutCiment, coutGravier515, coutGravier1525, coutSable, coutPowerflow,
+    coutMateriaux:     commande.coutMateriaux,
+    coutGasoil:        commande.coutGasoil,
     coutAmortissement: commande.coutAmortissement,
-    coutPersonnel: commande.coutPersonnel,
-    fraisRestauration: Math.ceil((commande.volumeBeton || 0) / 200) * 12 * 1500,
-    coutTotal: commande.coutTotal,
-    coutUnitaire: commande.coutUnitaire,
+    coutPersonnel:     commande.coutPersonnel,
+    fraisRestauration,
+    fraisTransport,
+    coutTotal:         commande.coutTotal,
+    coutUnitaire:      commande.coutUnitaire,
     margePrevisionnelle: commande.margePrevisionnelle,
-    tauxMarge: commande.tauxMarge,
+    tauxMarge:         commande.tauxMarge,
+    fraisLoyer, fraisAutresCharges, fraisImpots,
+    chargesExploitation,
+    beneficeReel:      commande.beneficeReel || (commande.margePrevisionnelle || 0) - chargesExploitation,
+    tauxBeneficeReel:  commande.tauxBeneficeReel || 0,
   };
 
   const doc = generateDevis(commande, calculs);
@@ -65,8 +99,6 @@ const genererPDF = asyncHandler(async (req, res) => {
 });
 
 const supprimerCommande = asyncHandler(async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
   const commande = await prisma.commande.findUnique({ where: { id: req.params.id } });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
   if (commande.statut !== 'BROUILLON' && req.user.role !== 'PDG') {

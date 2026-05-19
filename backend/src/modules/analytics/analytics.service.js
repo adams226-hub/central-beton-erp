@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8001';
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────

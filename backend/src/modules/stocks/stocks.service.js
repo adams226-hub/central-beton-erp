@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { emitToAll, emitToRole } = require('../../config/socket');
 const logger = require('../../config/logger');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 // Seuils d'alerte (jours de production)
 const UNITES = {
@@ -120,54 +118,55 @@ const enregistrerEntree = async (data, userId) => {
   return { mouvement, stock: updatedStock };
 };
 
-const deduireStockProduction = async (productionId, commandeId, formulation, volume, userId, tx) => {
-  const prismaInstance = tx || prisma;
+const deduireStockProduction = async (productionId, commandeId, formulation, volume, userId) => {
   const mouvements = [];
 
   const matieres = [
-    { type: 'CIMENT', quantite: (formulation.ciment * volume) / 1000 * 1000, label: 'Ciment' },
-    { type: 'SABLE', quantite: formulation.sable * volume, label: 'Sable' },
-    { type: 'GRAVIER_515', quantite: formulation.gravier515 * volume * 1000, label: 'Gravier 5/15' },
-    { type: 'GRAVIER_1525', quantite: formulation.gravier1525 * volume * 1000, label: 'Gravier 15/25' },
-    { type: 'HYDROFUGE', quantite: formulation.hydrofuge * volume, label: 'Hydrofuge' },
-    { type: 'POWERFLOW', quantite: formulation.powerflow * volume, label: 'Powerflow' },
-    { type: 'GASOIL', quantite: (formulation.gasoilToupie + formulation.gasoilChargeur + formulation.gasoilPompe + formulation.gasoilGroupe) * (volume / 200), label: 'Gasoil' },
+    { type: 'CIMENT',      quantite: formulation.ciment * volume },
+    { type: 'SABLE',       quantite: formulation.sable * volume },
+    { type: 'GRAVIER_515', quantite: formulation.gravier515 * volume * 1000 },
+    { type: 'GRAVIER_1525',quantite: formulation.gravier1525 * volume * 1000 },
+    { type: 'HYDROFUGE',   quantite: formulation.hydrofuge * volume },
+    { type: 'POWERFLOW',   quantite: formulation.powerflow * volume },
+    { type: 'GASOIL',      quantite: (formulation.gasoilToupie + formulation.gasoilChargeur + formulation.gasoilPompe + formulation.gasoilGroupe) * (volume / 200) },
   ].filter((m) => m.quantite > 0);
 
   for (const m of matieres) {
-    const stock = await prismaInstance.stockMatiere.findFirst({ where: { materiau: m.type } });
+    const stock = await prisma.stockMatiere.findFirst({ where: { materiau: m.type } });
     if (!stock) continue;
 
     const quantiteApres = Math.max(0, stock.quantite - m.quantite);
 
-    await prismaInstance.mouvementStock.create({
-      data: {
-        stockId: stock.id,
-        type: 'SORTIE_PRODUCTION',
-        quantite: m.quantite,
-        quantiteAvant: stock.quantite,
-        quantiteApres,
-        motif: `Production commande ${commandeId}`,
-        productionId,
-        commandeId,
-        userId,
-      },
-    });
+    // Mouvement + mise à jour stock en batch (atomique, rapide)
+    await prisma.$transaction([
+      prisma.mouvementStock.create({
+        data: {
+          stockId: stock.id,
+          type: 'SORTIE_PRODUCTION',
+          quantite: m.quantite,
+          quantiteAvant: stock.quantite,
+          quantiteApres,
+          motif: `Production commande ${commandeId}`,
+          productionId,
+          commandeId,
+          userId,
+        },
+      }),
+      prisma.stockMatiere.update({
+        where: { id: stock.id },
+        data: { quantite: quantiteApres, dernierMouvement: new Date() },
+      }),
+    ]);
 
-    await prismaInstance.stockMatiere.update({
-      where: { id: stock.id },
-      data: { quantite: quantiteApres, dernierMouvement: new Date() },
-    });
-
-    // Alerte si stock faible après déduction
+    // Alertes stock après déduction (hors transaction)
     if (quantiteApres <= stock.seuilCritique) {
-      const users = await prismaInstance.user.findMany({ where: { role: { in: ['PDG', 'CHEF_DE_SITE'] } } });
+      const users = await prisma.user.findMany({ where: { role: { in: ['PDG', 'CHEF_DE_SITE'] } } });
       for (const u of users) {
-        await prismaInstance.notification.create({
+        await prisma.notification.create({
           data: {
             userId: u.id,
             titre: 'STOCK_CRITIQUE',
-            message: `🚨 Stock CRITIQUE : ${stock.designation} — ${quantiteApres.toFixed(1)} ${stock.unite} restants`,
+            message: `Stock CRITIQUE : ${stock.designation} — ${quantiteApres.toFixed(1)} ${stock.unite} restants`,
             type: 'STOCK_CRITIQUE',
           },
         });

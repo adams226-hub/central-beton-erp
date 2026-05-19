@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const { calculerBesoinsCommande } = require('../../utils/calculations');
 const { emitToAll } = require('../../config/socket');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const lister = async (activeOnly = true) => {
   return prisma.formulation.findMany({
@@ -128,7 +126,7 @@ const supprimer = async (id, userId) => {
 };
 
 const calculer = (data) => {
-  return calculerBesoinsCommande(data.volume, data.formulation, data.montantCommande || 0);
+  return calculerBesoinsCommande(data.volume, data.formulation, data.montantCommande || 0, data.distanceLivraison || 0);
 };
 
 const calculerCoutUnitaire = (f) => {

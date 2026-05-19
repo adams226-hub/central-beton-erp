@@ -25,7 +25,13 @@ const PaiementForm = ({ onSuccess, onClose }) => {
   const { data: commandes } = useQuery({
     queryKey: ['commandes-paiement'],
     queryFn: () => commandesAPI.lister({ limit: 100 }),
-    select: (r) => r.data.data.commandes.filter((c) => c.montantCommande && ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut)),
+    select: (r) => r.data.data.commandes.filter((c) => {
+      if (!c.montantCommande || c.montantCommande <= 0) return false;
+      if (!['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut)) return false;
+      // Masquer quand le solde est entièrement payé
+      if (c.montantRestant !== null && c.montantRestant !== undefined && c.montantRestant <= 0) return false;
+      return true;
+    }),
   });
 
   const handleSubmit = async (e) => {

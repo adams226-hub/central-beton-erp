@@ -40,8 +40,10 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
 
   const { data: commandes } = useQuery({
     queryKey: ['commandes-validees'],
-    queryFn: () => commandesAPI.lister({ statut: 'VALIDEE', limit: 100 }),
-    select: (r) => r.data.data.commandes,
+    queryFn: () => commandesAPI.lister({ limit: 100 }),
+    select: (r) => r.data.data.commandes.filter((c) => ['VALIDEE', 'EN_PRODUCTION'].includes(c.statut)),
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const handleSubmit = async (e) => {
@@ -53,7 +55,8 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
       toast.success('Production démarrée ! Les stocks ont été automatiquement déduits.');
       onSuccess();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Erreur');
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du démarrage de la production';
+      toast.error(msg);
     } finally { setLoading(false); }
   };
 

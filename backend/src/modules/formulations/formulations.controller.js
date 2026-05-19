@@ -1,5 +1,6 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const service = require('./formulations.service');
+const prisma = require('../../config/prisma');
 
 const lister = asyncHandler(async (req, res) => {
   const formulations = await service.lister(req.query.all !== 'true');
@@ -32,12 +33,10 @@ const supprimer = asyncHandler(async (req, res) => {
 });
 
 const calculer = asyncHandler(async (req, res) => {
-  const { volume, formulationId, montantCommande } = req.body;
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
+  const { volume, formulationId, montantCommande, distanceLivraison } = req.body;
   const formulation = await prisma.formulation.findUnique({ where: { id: formulationId } });
   if (!formulation) return res.status(404).json({ success: false, message: 'Formulation introuvable' });
-  const calculs = service.calculer({ volume, formulation, montantCommande });
+  const calculs = service.calculer({ volume, formulation, montantCommande, distanceLivraison });
   res.json({ success: true, data: calculs });
 });
 

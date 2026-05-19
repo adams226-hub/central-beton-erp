@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const { deduireStockProduction } = require('../stocks/stocks.service');
 const { emitToAll, emitToRole, emitToUser } = require('../../config/socket');
 const { calculerBesoinsCommande } = require('../../utils/calculations');
 const logger = require('../../config/logger');
-
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma');
 
 const genRefProduction = () => {
   const d = new Date();
@@ -57,9 +55,9 @@ const demarrer = async (data, operateurId) => {
 
   const reference = genRefProduction();
 
-  const production = await prisma.$transaction(async (tx) => {
-    // Créer la production
-    const prod = await tx.production.create({
+  // Transaction batch atomique : créer production + mettre à jour statut commande
+  const [production] = await prisma.$transaction([
+    prisma.production.create({
       data: {
         reference,
         commandeId: data.commandeId,
@@ -70,45 +68,40 @@ const demarrer = async (data, operateurId) => {
         operateurId,
         observations: data.observations,
       },
-      include: { commande: true },
-    });
-
-    // Mettre à jour le statut de la commande
-    await tx.commande.update({
+    }),
+    prisma.commande.update({
       where: { id: data.commandeId },
       data: { statut: 'EN_PRODUCTION' },
-    });
+    }),
+  ]);
 
-    // Déduire automatiquement les stocks
-    await deduireStockProduction(prod.id, data.commandeId, commande.formulation, commande.volumeBeton, operateurId, tx);
+  // Déduire les stocks hors transaction pour éviter le timeout Supabase
+  await deduireStockProduction(production.id, data.commandeId, commande.formulation, commande.volumeBeton, operateurId);
 
-    // Enregistrer consommation carburant
-    const gasoilTotal = (commande.formulation.gasoilToupie + commande.formulation.gasoilChargeur + commande.formulation.gasoilPompe + commande.formulation.gasoilGroupe) * (commande.volumeBeton / 200);
-    if (gasoilTotal > 0) {
-      await tx.consoCarburant.create({
-        data: {
-          date: new Date(),
-          litres: gasoilTotal,
-          prixLitre: 675,
-          montantTotal: gasoilTotal * 675,
-          productionId: prod.id,
-          commandeId: data.commandeId,
-          motif: `Production ${reference}`,
-        },
-      });
-    }
-
-    // Journal
-    await tx.activite.create({
+  // Consommation carburant
+  const gasoilTotal = (commande.formulation.gasoilToupie + commande.formulation.gasoilChargeur + commande.formulation.gasoilPompe + commande.formulation.gasoilGroupe) * (commande.volumeBeton / 200);
+  if (gasoilTotal > 0) {
+    await prisma.consoCarburant.create({
       data: {
-        userId: operateurId,
-        type: 'DEMARRAGE_PRODUCTION',
-        action: `Production démarrée : ${reference} — ${commande.volumeBeton} m³ ${commande.typeBeton}`,
-        details: { productionId: prod.id, commandeId: data.commandeId },
+        date: new Date(),
+        litres: gasoilTotal,
+        prixLitre: 675,
+        montantTotal: gasoilTotal * 675,
+        productionId: production.id,
+        commandeId: data.commandeId,
+        motif: `Production ${reference}`,
       },
     });
+  }
 
-    return prod;
+  // Journal
+  await prisma.activite.create({
+    data: {
+      userId: operateurId,
+      type: 'DEMARRAGE_PRODUCTION',
+      action: `Production démarrée : ${reference} — ${commande.volumeBeton} m³ ${commande.typeBeton}`,
+      details: { productionId: production.id, commandeId: data.commandeId },
+    },
   });
 
   // Notifications temps réel
@@ -183,10 +176,11 @@ const terminer = async (id, data, userId) => {
         observations: data.observations || prod.observations,
       },
     }),
+    // On met à jour les coûts réels mais on ne passe PAS à LIVREE :
+    // c'est confirmerLivraison() qui décidera quand tout le volume est livré
     prisma.commande.update({
       where: { id: prod.commandeId },
       data: {
-        statut: 'LIVREE',
         depensesReelles: coutTotal,
         beneficeNetReel: beneficeNet,
         tauxMargeReel: tauxMarge,

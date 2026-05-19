@@ -307,6 +307,15 @@ model Commande {
   margePrevisionnelle Float?
   tauxMarge         Float?
 
+  // Distance et transport
+  distanceLivraison   Float?  @default(0)
+  fraisTransport      Float?
+
+  // Charges d'exploitation & bénéfice réel
+  chargesExploitation Float?
+  beneficeReel        Float?
+  tauxBeneficeReel    Float?
+
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
