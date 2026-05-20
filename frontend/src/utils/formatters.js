@@ -24,6 +24,8 @@ export const STATUT_CONFIG = {
   BROUILLON: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' },
   EN_ATTENTE_SECRETAIRE: { label: 'En attente (Secrétaire)', color: 'bg-yellow-100 text-yellow-800', dot: 'bg-yellow-500' },
   EN_ATTENTE_CHEF_SITE: { label: 'En attente (Chef de site)', color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
+  EN_ATTENTE_ASSISTANT_COMPTABLE: { label: 'En attente (Asst. Comptable)', color: 'bg-cyan-100 text-cyan-800', dot: 'bg-cyan-500' },
+  EN_ATTENTE_CHEF_COMPTABLE: { label: 'En attente (Chef Comptable)', color: 'bg-indigo-100 text-indigo-800', dot: 'bg-indigo-500' },
   EN_ATTENTE_PDG: { label: 'En attente (PDG)', color: 'bg-purple-100 text-purple-800', dot: 'bg-purple-500' },
   VALIDEE: { label: 'Validée', color: 'bg-green-100 text-green-800', dot: 'bg-green-500' },
   REJETEE: { label: 'Rejetée', color: 'bg-red-100 text-red-800', dot: 'bg-red-500' },
@@ -33,12 +35,21 @@ export const STATUT_CONFIG = {
 };
 
 export const ROLE_LABELS = {
-  PDG: 'PDG', SECRETAIRE: 'Secrétaire', CHEF_DE_SITE: 'Chef de site', COMPTABLE: 'Comptable',
+  PDG: 'PDG',
+  SECRETAIRE: 'Secrétaire',
+  CHEF_DE_SITE: 'Chef de site',
+  ASSISTANT_COMPTABLE: 'Asst. Comptable',
+  CHEF_COMPTABLE: 'Chef Comptable',
+  COMPTABLE: 'Comptable',
+  OPERATEUR: 'Opérateur',
 };
 
 export const ROLE_COLORS = {
   PDG: 'bg-purple-100 text-purple-800',
   SECRETAIRE: 'bg-blue-100 text-blue-800',
   CHEF_DE_SITE: 'bg-orange-100 text-orange-800',
+  ASSISTANT_COMPTABLE: 'bg-cyan-100 text-cyan-800',
+  CHEF_COMPTABLE: 'bg-indigo-100 text-indigo-800',
   COMPTABLE: 'bg-green-100 text-green-800',
+  OPERATEUR: 'bg-gray-100 text-gray-700',
 };

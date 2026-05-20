@@ -11,7 +11,8 @@ async function main() {
     { nom: 'BATIONO', prenom: 'Romacic', email: 'pdg@ampbeton.bf', password: 'Admin@2026', role: 'PDG', telephone: '+226 70 00 00 01' },
     { nom: 'OUEDRAOGO', prenom: 'Fatima', email: 'secretaire@ampbeton.bf', password: 'Secret@2026', role: 'SECRETAIRE', telephone: '+226 70 00 00 02' },
     { nom: 'SAVADOGO', prenom: 'Landry', email: 'chefsite@ampbeton.bf', password: 'Chef@2026', role: 'CHEF_DE_SITE', telephone: '+226 70 00 00 03' },
-    { nom: 'SANOU', prenom: 'Nachia', email: 'comptable@ampbeton.bf', password: 'Compta@2026', role: 'COMPTABLE', telephone: '+226 70 00 00 04' },
+    { nom: 'SANOU', prenom: 'Nachia', email: 'chefcomptable@ampbeton.bf', password: 'Chef@Compta2026', role: 'CHEF_COMPTABLE', telephone: '+226 70 00 00 04' },
+    { nom: 'KABORE', prenom: 'Aïssata', email: 'asstcomptable@ampbeton.bf', password: 'Asst@Compta2026', role: 'ASSISTANT_COMPTABLE', telephone: '+226 70 00 00 06' },
     { nom: 'KONE', prenom: 'Ibrahim', email: 'operateur@ampbeton.bf', password: 'Operat@2026', role: 'OPERATEUR', telephone: '+226 70 00 00 05' },
   ];
 

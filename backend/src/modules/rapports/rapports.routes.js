@@ -5,7 +5,7 @@ const { authenticate } = require('../../middleware/auth');
 const { requireRoles } = require('../../middleware/rbac');
 
 router.use(authenticate);
-router.use(requireRoles('PDG', 'COMPTABLE'));
+router.use(requireRoles('PDG', 'COMPTABLE', 'CHEF_COMPTABLE'));
 
 router.get('/tableau-de-bord-pdg', ctrl.tableauDeBordPDG);
 router.get('/production', ctrl.rapportProduction);

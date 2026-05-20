@@ -1,13 +1,16 @@
 const { calculerBesoinsCommande, genererReferenceCommande } = require('../../utils/calculations');
 const { emitToUser, emitToRole } = require('../../config/socket');
+const { envoyerNotifValidation, envoyerEmail } = require('../../utils/email');
 const logger = require('../../config/logger');
 const prisma = require('../../config/prisma');
 
-// Ordre du workflow de validation
+// Ordre du workflow de validation (5 étapes)
+// Secrétaire → Chef de site → Assistant Comptable → Chef Comptable → VALIDÉE (→ PDG notifié)
 const WORKFLOW = {
-  EN_ATTENTE_SECRETAIRE: { next: 'EN_ATTENTE_CHEF_SITE', role: 'SECRETAIRE', etape: 1 },
-  EN_ATTENTE_CHEF_SITE:  { next: 'EN_ATTENTE_PDG',       role: 'CHEF_DE_SITE', etape: 2 },
-  EN_ATTENTE_PDG:        { next: 'VALIDEE',               role: 'PDG',          etape: 3 },
+  EN_ATTENTE_SECRETAIRE:           { next: 'EN_ATTENTE_CHEF_SITE',              role: 'SECRETAIRE',          etape: 1 },
+  EN_ATTENTE_CHEF_SITE:            { next: 'EN_ATTENTE_ASSISTANT_COMPTABLE',    role: 'CHEF_DE_SITE',        etape: 2 },
+  EN_ATTENTE_ASSISTANT_COMPTABLE:  { next: 'EN_ATTENTE_CHEF_COMPTABLE',         role: 'ASSISTANT_COMPTABLE', etape: 3 },
+  EN_ATTENTE_CHEF_COMPTABLE:       { next: 'VALIDEE',                           role: 'CHEF_COMPTABLE',      etape: 4 },
 };
 
 const listerCommandes = async (user, filters = {}) => {
@@ -187,15 +190,17 @@ const validerCommande = async (commandeId, valideurId, commentaire) => {
     data: { userId: valideurId, type: 'VALIDATION_COMMANDE', action: `Commande validée (étape ${etapeActuelle.etape}) : ${commande.reference}`, details: { commandeId } },
   });
 
-  // Notifier la prochaine étape ou le créateur + opérateurs
+  // Quand le Chef Comptable valide → commande VALIDÉE → la production peut démarrer
   if (etapeActuelle.next === 'VALIDEE') {
-    await notifierUser(commande.createdById, commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} entièrement validée !`);
-    await notifierRole('OPERATEUR', commande, 'COMMANDE_VALIDEE', `Nouvelle commande en production : ${commande.reference} — ${commande.volumeBeton} m³ de ${commande.typeBeton}`);
-    await notifierRole('CHEF_DE_SITE', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le PDG — prête pour production`);
+    await notifierUser(commande.createdById, commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le Chef Comptable — prête pour production !`);
+    await notifierRole('OPERATEUR', commande, 'COMMANDE_VALIDEE', `Nouvelle commande validée : ${commande.reference} — ${commande.volumeBeton} m³ de ${commande.typeBeton}`);
+    await notifierRole('CHEF_DE_SITE', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée — prête pour production`);
+    // PDG est notifié mais sa validation n'est pas requise
+    await notifierRole('PDG', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le Chef Comptable et prête pour production (${commande.volumeBeton} m³)`);
   } else {
     const nextRole = WORKFLOW[etapeActuelle.next]?.role;
     if (nextRole) {
-      await notifierRole(nextRole, commande, 'VALIDATION_REQUISE', `Validation requise (étape ${WORKFLOW[etapeActuelle.next].etape}) : ${commande.reference}`);
+      await notifierRole(nextRole, commande, 'VALIDATION_REQUISE', `Validation requise (étape ${WORKFLOW[etapeActuelle.next].etape}) : ${commande.reference}`, etapeActuelle.next);
     }
   }
 
@@ -212,7 +217,8 @@ const rejeterCommande = async (commandeId, valideurId, motif) => {
   if (!etape) throw Object.assign(new Error('Cette commande ne peut pas être rejetée'), { statusCode: 400 });
 
   const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
-  if (valideur.role !== etape.role && valideur.role !== 'PDG') {
+  const rolesAutorisesRejet = [etape.role, 'PDG', 'CHEF_COMPTABLE'];
+  if (!rolesAutorisesRejet.includes(valideur.role)) {
     throw Object.assign(new Error(`Seul un ${etape.role} peut rejeter à cette étape`), { statusCode: 403 });
   }
 
@@ -245,7 +251,7 @@ const rejeterCommande = async (commandeId, valideurId, motif) => {
 const getStatistiques = async () => {
   const [total, enAttente, validees, rejetees, enProduction, livrees] = await prisma.$transaction([
     prisma.commande.count(),
-    prisma.commande.count({ where: { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_PDG'] } } }),
+    prisma.commande.count({ where: { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE', 'EN_ATTENTE_PDG'] } } }),
     prisma.commande.count({ where: { statut: 'VALIDEE' } }),
     prisma.commande.count({ where: { statut: 'REJETEE' } }),
     prisma.commande.count({ where: { statut: 'EN_PRODUCTION' } }),
@@ -272,13 +278,25 @@ const getStatistiques = async () => {
   };
 };
 
-const notifierRole = async (role, commande, type, message) => {
+const ETAPE_LABELS = {
+  EN_ATTENTE_CHEF_SITE:           'Étape 2 — Chef de site',
+  EN_ATTENTE_ASSISTANT_COMPTABLE: 'Étape 3 — Assistant Comptable',
+  EN_ATTENTE_CHEF_COMPTABLE:      'Étape 4 — Chef Comptable',
+  EN_ATTENTE_PDG:                 'Étape 5 — PDG',
+};
+
+const notifierRole = async (role, commande, type, message, etapeStatut = null) => {
   const users = await prisma.user.findMany({ where: { role, isActive: true } });
   for (const u of users) {
     const notif = await prisma.notification.create({
       data: { userId: u.id, commandeId: commande.id, titre: type, message, type },
     });
     emitToUser(u.id, 'notification:nouvelle', notif);
+    // Email si type validation requise
+    if (type === 'VALIDATION_REQUISE' && u.email && etapeStatut) {
+      const etapeLabel = ETAPE_LABELS[etapeStatut] || 'Validation';
+      envoyerNotifValidation(u.email, `${u.prenom} ${u.nom}`, commande, etapeLabel).catch(() => {});
+    }
   }
 };
 
@@ -287,6 +305,11 @@ const notifierUser = async (userId, commande, type, message) => {
     data: { userId, commandeId: commande.id, titre: type, message, type },
   });
   emitToUser(userId, 'notification:nouvelle', notif);
+  // Email d'information
+  const u = await prisma.user.findUnique({ where: { id: userId } });
+  if (u?.email) {
+    envoyerEmail(u.email, `${u.prenom} ${u.nom}`, type === 'COMMANDE_VALIDEE' ? 'Commande validée' : 'Commande rejetée', message).catch(() => {});
+  }
 };
 
 module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques };

@@ -90,13 +90,18 @@ const Commandes = () => {
     const mapRoleStatut = {
       SECRETAIRE: 'EN_ATTENTE_SECRETAIRE',
       CHEF_DE_SITE: 'EN_ATTENTE_CHEF_SITE',
+      ASSISTANT_COMPTABLE: 'EN_ATTENTE_ASSISTANT_COMPTABLE',
+      CHEF_COMPTABLE: 'EN_ATTENTE_CHEF_COMPTABLE',
       PDG: 'EN_ATTENTE_PDG',
     };
     return hasPermission('commande:validate') && cmd.statut === mapRoleStatut[user?.role];
   };
 
   const canReject = (cmd) => {
-    return hasPermission('commande:reject') && ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_PDG'].includes(cmd.statut);
+    return hasPermission('commande:reject') && [
+      'EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE',
+      'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE', 'EN_ATTENTE_PDG',
+    ].includes(cmd.statut);
   };
 
   if (isLoading) return <PageLoader />;

@@ -76,6 +76,20 @@ export const AuthProvider = ({ children }) => {
         'paiement:read',
         'rapport:read', 'dashboard:read',
       ],
+      ASSISTANT_COMPTABLE: [
+        'commande:read', 'commande:validate', 'commande:reject',
+        'formulation:read',
+        'stock:read', 'production:read', 'livraison:read',
+        'paiement:read', 'paiement:write',
+        'rapport:read', 'dashboard:read',
+      ],
+      CHEF_COMPTABLE: [
+        'commande:read', 'commande:validate', 'commande:reject',
+        'formulation:read',
+        'stock:read', 'production:read', 'livraison:read',
+        'paiement:read', 'paiement:write',
+        'rapport:read', 'rapport:export', 'dashboard:read',
+      ],
       COMPTABLE: [
         'commande:read', 'formulation:read',
         'stock:read', 'production:read', 'equipement:read', 'livraison:read',

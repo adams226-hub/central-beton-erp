@@ -78,9 +78,18 @@ const CommandeDetail = () => {
   if (isLoading) return <PageLoader />;
   if (!commande) return <p className="text-center text-gray-400 py-20">Commande introuvable</p>;
 
-  const mapRoleStatut = { SECRETAIRE: 'EN_ATTENTE_SECRETAIRE', CHEF_DE_SITE: 'EN_ATTENTE_CHEF_SITE', PDG: 'EN_ATTENTE_PDG' };
+  const mapRoleStatut = {
+    SECRETAIRE: 'EN_ATTENTE_SECRETAIRE',
+    CHEF_DE_SITE: 'EN_ATTENTE_CHEF_SITE',
+    ASSISTANT_COMPTABLE: 'EN_ATTENTE_ASSISTANT_COMPTABLE',
+    CHEF_COMPTABLE: 'EN_ATTENTE_CHEF_COMPTABLE',
+    PDG: 'EN_ATTENTE_PDG',
+  };
   const canValidate = hasPermission('commande:validate') && commande.statut === mapRoleStatut[user?.role];
-  const canReject = hasPermission('commande:reject') && ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_PDG'].includes(commande.statut);
+  const canReject = hasPermission('commande:reject') && [
+    'EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE',
+    'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE', 'EN_ATTENTE_PDG',
+  ].includes(commande.statut);
   const canEdit = hasPermission('commande:update') && ['BROUILLON', 'EN_ATTENTE_SECRETAIRE', 'REJETEE'].includes(commande.statut);
 
   if (editing) return (
