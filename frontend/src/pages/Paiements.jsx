@@ -27,12 +27,7 @@ const PaiementForm = ({ onSuccess, onClose }) => {
     queryFn: () => commandesAPI.lister({ limit: 200 }),
     select: (r) => {
       const list = r.data?.data?.commandes ?? [];
-      return list.filter((c) => {
-        if (!c.montantCommande || c.montantCommande <= 0) return false;
-        if (!['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut)) return false;
-        if (c.montantRestant !== null && c.montantRestant !== undefined && c.montantRestant <= 0) return false;
-        return true;
-      });
+      return list.filter((c) => ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut));
     },
     staleTime: 0,
     refetchOnMount: 'always',

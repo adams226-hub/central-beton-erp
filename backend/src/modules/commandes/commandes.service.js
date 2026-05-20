@@ -20,9 +20,12 @@ const listerCommandes = async (user, filters = {}) => {
       { adresseChantier: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
-  // Secrétaire voit seulement ses propres commandes créées + celles en attente
+  // Secrétaire : voit ses propres commandes + toutes les commandes actives du workflow
   if (user.role === 'SECRETAIRE') {
-    where.OR = [{ createdById: user.id }, { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'VALIDEE', 'REJETEE'] } }];
+    where.OR = [
+      { createdById: user.id },
+      { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'VALIDEE', 'EN_PRODUCTION', 'LIVREE', 'REJETEE'] } },
+    ];
   }
 
   const [commandes, total] = await prisma.$transaction([

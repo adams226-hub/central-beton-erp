@@ -38,10 +38,10 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
   const [observations, setObs] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { data: commandes } = useQuery({
+  const { data: commandes, isLoading: cmdLoading } = useQuery({
     queryKey: ['commandes-validees'],
-    queryFn: () => commandesAPI.lister({ limit: 100 }),
-    select: (r) => r.data.data.commandes.filter((c) => ['VALIDEE', 'EN_PRODUCTION'].includes(c.statut)),
+    queryFn: () => commandesAPI.lister({ limit: 200 }),
+    select: (r) => (r.data?.data?.commandes ?? []).filter((c) => ['VALIDEE', 'EN_PRODUCTION'].includes(c.statut)),
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -70,14 +70,18 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Commande validée *</label>
             <select value={commandeId} onChange={(e) => setCommandeId(e.target.value)} className="amp-input">
-              <option value="">Sélectionner une commande...</option>
+              <option value="">— Sélectionner une commande —</option>
+              {cmdLoading && <option disabled>Chargement...</option>}
+              {!cmdLoading && commandes?.length === 0 && <option disabled>Aucune commande validée</option>}
               {commandes?.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.reference} — {c.nomClient} — {formatVolume(c.volumeBeton)} {c.typeBeton}
+                  {c.reference} — {c.nomClient} — {c.volumeBeton} m³ {c.typeBeton}
                 </option>
               ))}
             </select>
-            {commandes?.length === 0 && <p className="text-amber-600 text-xs mt-1">Aucune commande validée disponible</p>}
+            {!cmdLoading && commandes?.length === 0 && (
+              <p className="text-amber-600 text-xs mt-1">Aucune commande VALIDÉE ou EN_PRODUCTION disponible</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Observations</label>
