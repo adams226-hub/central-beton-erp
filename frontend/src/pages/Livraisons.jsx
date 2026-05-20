@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, AlertTriangle, Navigation } from 'lucide-react';
+import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, AlertTriangle, Navigation, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { livraisonsAPI, commandesAPI, equipementsAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -21,16 +21,19 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
   const [form, setForm] = useState({ commandeId: '', toupieId: '', chauffeur: '', heureDepart: '', adresseChantier: '', observations: '' });
   const [loading, setLoading] = useState(false);
 
-  const { data: commandes } = useQuery({
+  const { data: commandes, isLoading: cmdLoading } = useQuery({
     queryKey: ['commandes-livraison'],
-    queryFn: () => commandesAPI.lister({ limit: 100 }),
-    select: (r) => r.data.data.commandes.filter((c) => ['EN_PRODUCTION', 'VALIDEE'].includes(c.statut)),
+    queryFn: () => commandesAPI.lister({ limit: 200 }),
+    select: (r) => r.data?.data?.commandes?.filter((c) => ['EN_PRODUCTION', 'VALIDEE'].includes(c.statut)) ?? [],
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const { data: toupies } = useQuery({
     queryKey: ['equipements-toupies'],
     queryFn: () => equipementsAPI.lister({ type: 'TOUPIE' }),
-    select: (r) => r.data.data.filter((e) => e.statut === 'DISPONIBLE' || e.statut === 'EN_SERVICE'),
+    select: (r) => r.data?.data?.filter((e) => ['DISPONIBLE', 'EN_SERVICE'].includes(e.statut)) ?? [],
+    staleTime: 0,
   });
 
   const handleCommandeChange = (e) => {
@@ -59,8 +62,10 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Commande *</label>
-            <select value={form.commandeId} onChange={handleCommandeChange} className="amp-input text-sm" required>
-              <option value="">Sélectionner une commande...</option>
+            <select value={form.commandeId} onChange={handleCommandeChange} className="w-full amp-input text-sm" required>
+              <option value="">— Sélectionner une commande —</option>
+              {cmdLoading && <option disabled>Chargement...</option>}
+              {!cmdLoading && commandes?.length === 0 && <option disabled>Aucune commande en production</option>}
               {commandes?.map((c) => (
                 <option key={c.id} value={c.id}>{c.reference} — {c.nomClient} — {c.volumeBeton} m³</option>
               ))}
@@ -69,8 +74,8 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Toupie</label>
-              <select value={form.toupieId} onChange={(e) => setForm({ ...form, toupieId: e.target.value })} className="amp-input text-sm">
-                <option value="">Choisir une toupie...</option>
+              <select value={form.toupieId} onChange={(e) => setForm({ ...form, toupieId: e.target.value })} className="w-full amp-input text-sm">
+                <option value="">— Choisir une toupie —</option>
                 {toupies?.map((t) => <option key={t.id} value={t.id}>{t.nom} ({t.statut})</option>)}
               </select>
             </div>
@@ -145,7 +150,7 @@ const LivrerModal = ({ livraison, onSuccess, onClose }) => {
   );
 };
 
-const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, canEdit }) => {
+const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, onExport, canEdit }) => {
   const cfg = STATUT_CFG[liv.statut] || STATUT_CFG.PLANIFIEE;
   const isActive = liv.statut === 'EN_ROUTE';
   const canConfirm = liv.statut === 'EN_ROUTE';
@@ -183,6 +188,14 @@ const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, canEdit }) => {
           {liv.toupie && <p className="text-xs text-gray-500">Toupie : <span className="font-medium">{liv.toupie.nom}</span></p>}
           {liv.heureArrivee && <p className="text-xs text-green-600 font-medium">Livré : {formatDateTime(liv.heureArrivee)}</p>}
           {liv.volumeReel && <p className="text-xs font-bold text-gray-700">Volume livré : {liv.volumeReel} m³</p>}
+          {/* Bouton état de livraison */}
+          <button
+            onClick={() => onExport(liv.commandeId)}
+            className="inline-flex items-center gap-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium mt-1"
+            title="Télécharger état de livraison"
+          >
+            <FileDown size={11} /> État livraison
+          </button>
         </div>
       </div>
 
@@ -242,6 +255,23 @@ const Livraisons = () => {
     } catch (err) { toast.error('Erreur'); }
   };
 
+  const exportEtat = async (commandeId) => {
+    if (!commandeId) return toast.error('Commande introuvable');
+    const toastId = toast.loading('Génération état de livraison...');
+    try {
+      const res = await livraisonsAPI.exportEtatLivraison(commandeId);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `etat-livraison-${commandeId}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('État de livraison téléchargé', { id: toastId });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur export', { id: toastId });
+    }
+  };
+
   const onSuccess = () => {
     setShowForm(false);
     setLivrerTarget(null);
@@ -264,14 +294,14 @@ const Livraisons = () => {
         </div>
       )}
 
-      {/* KPIs dérivés */}
+      {/* KPIs */}
       {livraisons && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Planifiées', value: livraisons.filter((l) => l.statut === 'PLANIFIEE').length, color: 'text-blue-700' },
             { label: 'En route', value: livraisons.filter((l) => l.statut === 'EN_ROUTE').length, color: 'text-amber-700' },
             { label: 'Livrées', value: livraisons.filter((l) => l.statut === 'LIVREE').length, color: 'text-green-700' },
-            { label: 'Volume livré (m³)', value: livraisons.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toLocaleString('fr-FR'), color: 'text-gray-800' },
+            { label: 'Volume livré (m³)', value: livraisons.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toFixed(1), color: 'text-gray-800' },
           ].map(({ label, value, color }) => (
             <div key={label} className="amp-stat-card">
               <p className="text-sm text-gray-500">{label}</p>
@@ -312,6 +342,7 @@ const Livraisons = () => {
             onDemarrer={demarrer}
             onLivrer={setLivrerTarget}
             onAnnuler={annuler}
+            onExport={exportEtat}
             canEdit={canEdit}
           />
         ))}

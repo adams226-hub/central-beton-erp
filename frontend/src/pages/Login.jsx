@@ -52,7 +52,7 @@ const Login = () => {
               <Building2 size={32} className="text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white">AMP BÉTON</h1>
-            <p className="text-blue-200 text-sm mt-1">ERP Centrale à Béton — Ouaga 2000</p>
+            <p className="text-blue-200 text-sm mt-1">ERP Centrale à Béton </p>
           </div>
 
           {/* Form */}

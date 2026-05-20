@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CreditCard, Plus, CheckCircle, AlertTriangle, Clock, TrendingUp } from 'lucide-react';
+import { CreditCard, Plus, CheckCircle, AlertTriangle, Clock, TrendingUp, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { paiementsAPI, commandesAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
-import { formatMontant, formatDate, formatDateTime } from '../utils/formatters';
+import { formatMontant, formatDate } from '../utils/formatters';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -22,16 +22,20 @@ const PaiementForm = ({ onSuccess, onClose }) => {
   const [form, setForm] = useState({ commandeId: '', montant: '', modePaiement: 'ESPECE', statut: 'EN_ATTENTE', reference_ext: '', banque: '', dateEcheance: '', notes: '' });
   const [loading, setLoading] = useState(false);
 
-  const { data: commandes } = useQuery({
+  const { data: commandes, isLoading: cmdLoading } = useQuery({
     queryKey: ['commandes-paiement'],
-    queryFn: () => commandesAPI.lister({ limit: 100 }),
-    select: (r) => r.data.data.commandes.filter((c) => {
-      if (!c.montantCommande || c.montantCommande <= 0) return false;
-      if (!['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut)) return false;
-      // Masquer quand le solde est entièrement payé
-      if (c.montantRestant !== null && c.montantRestant !== undefined && c.montantRestant <= 0) return false;
-      return true;
-    }),
+    queryFn: () => commandesAPI.lister({ limit: 200 }),
+    select: (r) => {
+      const list = r.data?.data?.commandes ?? [];
+      return list.filter((c) => {
+        if (!c.montantCommande || c.montantCommande <= 0) return false;
+        if (!['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut)) return false;
+        if (c.montantRestant !== null && c.montantRestant !== undefined && c.montantRestant <= 0) return false;
+        return true;
+      });
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const handleSubmit = async (e) => {
@@ -54,10 +58,14 @@ const PaiementForm = ({ onSuccess, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Commande *</label>
-            <select value={form.commandeId} onChange={(e) => setForm({ ...form, commandeId: e.target.value })} className="amp-input text-sm" required>
-              <option value="">Sélectionner...</option>
+            <select value={form.commandeId} onChange={(e) => setForm({ ...form, commandeId: e.target.value })} className="w-full amp-input text-sm" required>
+              <option value="">— Sélectionner une commande —</option>
+              {cmdLoading && <option disabled>Chargement...</option>}
+              {!cmdLoading && commandes?.length === 0 && <option disabled>Aucune commande avec solde restant</option>}
               {commandes?.map((c) => (
-                <option key={c.id} value={c.id}>{c.reference} — {c.nomClient} — {formatMontant(c.montantCommande)}</option>
+                <option key={c.id} value={c.id}>
+                  {c.reference} — {c.nomClient} — Reste: {c.montantRestant ? Math.round(c.montantRestant).toLocaleString() : '?'} FCFA
+                </option>
               ))}
             </select>
           </div>
@@ -68,13 +76,13 @@ const PaiementForm = ({ onSuccess, onClose }) => {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Mode *</label>
-              <select value={form.modePaiement} onChange={(e) => setForm({ ...form, modePaiement: e.target.value })} className="amp-input text-sm">
+              <select value={form.modePaiement} onChange={(e) => setForm({ ...form, modePaiement: e.target.value })} className="w-full amp-input text-sm">
                 {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Statut</label>
-              <select value={form.statut} onChange={(e) => setForm({ ...form, statut: e.target.value })} className="amp-input text-sm">
+              <select value={form.statut} onChange={(e) => setForm({ ...form, statut: e.target.value })} className="w-full amp-input text-sm">
                 <option value="EN_ATTENTE">En attente</option>
                 <option value="PAYE">Payé maintenant</option>
               </select>
@@ -116,7 +124,7 @@ const Paiements = () => {
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [view, setView] = useState('liste'); // 'liste' | 'creances'
+  const [view, setView] = useState('liste');
 
   const { data: paiements, isLoading } = useQuery({
     queryKey: ['paiements'],
@@ -143,6 +151,23 @@ const Paiements = () => {
       toast.success('Paiement confirmé');
       qc.invalidateQueries(['paiements', 'paiements-stats']);
     } catch (err) { toast.error('Erreur'); }
+  };
+
+  const exportEtatPaiement = async (commandeId, nomClient) => {
+    if (!commandeId) return toast.error('Commande introuvable');
+    const toastId = toast.loading('Génération état de paiement...');
+    try {
+      const res = await paiementsAPI.exportEtatPaiement(commandeId);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `etat-paiement-${nomClient || commandeId}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('État de paiement téléchargé', { id: toastId });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur export', { id: toastId });
+    }
   };
 
   if (isLoading) return <PageLoader />;
@@ -211,11 +236,22 @@ const Paiements = () => {
                     <td className="px-4 py-3"><span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', cfg.color)}>{cfg.label}</span></td>
                     <td className="px-4 py-3 text-xs text-gray-400">{formatDate(p.createdAt)}</td>
                     <td className="px-4 py-3">
-                      {p.statut === 'EN_ATTENTE' && hasPermission('paiement:write') && (
-                        <button onClick={() => confirmer(p.id)} className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded font-medium">
-                          ✓ Confirmer
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {p.statut === 'EN_ATTENTE' && hasPermission('paiement:write') && (
+                          <button onClick={() => confirmer(p.id)} className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded font-medium">
+                            ✓ Confirmer
+                          </button>
+                        )}
+                        {p.commande?.id || p.commandeId ? (
+                          <button
+                            onClick={() => exportEtatPaiement(p.commande?.id || p.commandeId, p.commande?.nomClient)}
+                            className="flex items-center gap-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium"
+                            title="État de paiement PDF"
+                          >
+                            <FileDown size={11} /> État
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -240,10 +276,16 @@ const Paiements = () => {
                   <p className="font-semibold text-gray-800">{c.nomClient}</p>
                   <p className="text-xs text-gray-500">Tél : {c.telephone}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right space-y-1">
                   <p className="text-sm text-gray-500">Montant : {formatMontant(c.montantCommande)}</p>
                   <p className="text-sm font-medium text-green-700">Payé : {formatMontant(c.totalPaye)}</p>
                   <p className="text-lg font-bold text-red-700">Reste : {formatMontant(c.resteAPayer)}</p>
+                  <button
+                    onClick={() => exportEtatPaiement(c.id, c.nomClient)}
+                    className="inline-flex items-center gap-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-medium"
+                  >
+                    <FileDown size={12} /> État de paiement PDF
+                  </button>
                 </div>
               </div>
             </div>

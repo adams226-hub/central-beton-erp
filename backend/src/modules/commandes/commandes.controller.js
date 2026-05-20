@@ -1,6 +1,6 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const service = require('./commandes.service');
-const { generateDevis } = require('../../utils/pdf');
+const { generateDevis, generateFactureProforma } = require('../../utils/pdf');
 const prisma = require('../../config/prisma');
 
 const listerCommandes = asyncHandler(async (req, res) => {
@@ -98,6 +98,15 @@ const genererPDF = asyncHandler(async (req, res) => {
   doc.end();
 });
 
+const genererFactureProforma = asyncHandler(async (req, res) => {
+  const commande = await service.getCommande(req.params.id);
+  const doc = generateFactureProforma(commande);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="proforma-${commande.reference}.pdf"`);
+  doc.pipe(res);
+  doc.end();
+});
+
 const supprimerCommande = asyncHandler(async (req, res) => {
   const commande = await prisma.commande.findUnique({ where: { id: req.params.id } });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
@@ -108,4 +117,4 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Commande supprimée' });
 });
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, supprimerCommande };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, supprimerCommande };

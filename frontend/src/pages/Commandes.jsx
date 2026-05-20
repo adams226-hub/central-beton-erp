@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Filter, Download, Eye, CheckCircle, XCircle,
-  ChevronDown, RefreshCw, FileText
+  ChevronDown, RefreshCw, FileText, FileCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { commandesAPI } from '../api';
@@ -71,8 +71,19 @@ const Commandes = () => {
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a'); a.href = url; a.download = `devis-${ref}.pdf`; a.click();
       URL.revokeObjectURL(url);
-      toast.success('PDF téléchargé');
+      toast.success('Devis téléchargé');
     } catch { toast.error('Erreur génération PDF'); }
+  };
+
+  const handleDownloadProforma = async (id, ref, e) => {
+    e.stopPropagation();
+    try {
+      const res = await commandesAPI.telechargerProforma(id);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a'); a.href = url; a.download = `proforma-${ref}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Facture proforma téléchargée');
+    } catch { toast.error('Erreur génération proforma'); }
   };
 
   const canValidate = (cmd) => {
@@ -205,9 +216,16 @@ const Commandes = () => {
                       <button
                         onClick={(e) => handleDownloadPDF(cmd.id, cmd.reference, e)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
-                        title="Télécharger PDF"
+                        title="Télécharger Devis PDF"
                       >
                         <Download size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDownloadProforma(cmd.id, cmd.reference, e)}
+                        className="p-1.5 hover:bg-green-50 rounded-lg text-green-600 transition-colors"
+                        title="Télécharger Facture Proforma"
+                      >
+                        <FileCheck size={14} />
                       </button>
                     </div>
                   </td>

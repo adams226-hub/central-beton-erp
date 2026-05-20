@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get('/', ctrl.lister);
 router.get('/statistiques', ctrl.getStatistiques);
 router.get('/creances', ctrl.getCreances);
+router.get('/export', ctrl.exportEtatPaiement);
 router.get('/commande/:commandeId', ctrl.getParCommande);
 router.post('/', requireRoles('PDG', 'COMPTABLE', 'SECRETAIRE'), ctrl.enregistrer);
 router.patch('/:id/confirmer', requireRoles('PDG', 'COMPTABLE'), ctrl.confirmer);

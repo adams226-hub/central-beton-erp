@@ -19,6 +19,7 @@ export const commandesAPI = {
   supprimer: (id) => api.delete(`/commandes/${id}`),
   statistiques: () => api.get('/commandes/statistiques'),
   telechargerPDF: (id) => api.get(`/commandes/${id}/pdf`, { responseType: 'blob' }),
+  telechargerProforma: (id) => api.get(`/commandes/${id}/proforma`, { responseType: 'blob' }),
 };
 
 // ─── Formulations ────────────────────────────────────
@@ -83,6 +84,7 @@ export const livraisonsAPI = {
   demarrer: (id) => api.patch(`/livraisons/${id}/statut`, { statut: 'EN_ROUTE' }),
   livrer: (id, data) => api.patch(`/livraisons/${id}/livrer`, data),
   annuler: (id) => api.patch(`/livraisons/${id}/statut`, { statut: 'ANNULEE' }),
+  exportEtatLivraison: (commandeId) => api.get('/livraisons/export', { params: { commandeId }, responseType: 'blob' }),
 };
 
 // ─── Paiements ────────────────────────────────────────
@@ -93,6 +95,7 @@ export const paiementsAPI = {
   annuler: (id) => api.patch(`/paiements/${id}/annuler`),
   getStatistiques: (params) => api.get('/paiements/statistiques', { params }),
   getCreances: () => api.get('/paiements/creances'),
+  exportEtatPaiement: (commandeId) => api.get('/paiements/export', { params: { commandeId }, responseType: 'blob' }),
 };
 
 // ─── Analytics Phase 3 ────────────────────────────────

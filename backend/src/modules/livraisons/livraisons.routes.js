@@ -7,6 +7,7 @@ router.use(authenticate);
 
 router.get('/', ctrl.lister);
 router.get('/planning', ctrl.getPlanning);
+router.get('/export', ctrl.exportEtatLivraison);
 router.get('/:id', ctrl.getOne);
 router.post('/', ctrl.planifier);
 router.patch('/:id/statut', ctrl.changerStatut);
