@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CreditCard, Plus, CheckCircle, AlertTriangle, Clock, TrendingUp, FileDown } from 'lucide-react';
+import { CreditCard, Plus, CheckCircle, AlertTriangle, Clock, TrendingUp, FileDown, Search, Filter, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { paiementsAPI, commandesAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -120,11 +120,25 @@ const Paiements = () => {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [view, setView] = useState('liste');
+  const [search, setSearch] = useState('');
+  const [filtreStatut, setFiltreStatut] = useState('');
+  const [filtreMode, setFiltreMode] = useState('');
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
+
+  const resetFiltres = () => { setSearch(''); setFiltreStatut(''); setFiltreMode(''); setDateDebut(''); setDateFin(''); };
+  const hasFiltres = search || filtreStatut || filtreMode || dateDebut || dateFin;
 
   const { data: paiements, isLoading } = useQuery({
-    queryKey: ['paiements'],
-    queryFn: () => paiementsAPI.lister(),
-    select: (r) => r.data.data,
+    queryKey: ['paiements', search, filtreStatut, filtreMode, dateDebut, dateFin],
+    queryFn: () => paiementsAPI.lister({
+      search: search || undefined,
+      statut: filtreStatut || undefined,
+      mode: filtreMode || undefined,
+      dateDebut: dateDebut || undefined,
+      dateFin: dateFin || undefined,
+    }),
+    select: (r) => r.data.data?.paiements ?? r.data.data ?? [],
   });
 
   const { data: stats } = useQuery({
@@ -189,6 +203,35 @@ const Paiements = () => {
           ))}
         </div>
       )}
+
+      {/* Barre de filtres */}
+      <div className="amp-card p-4 space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un client..." className="amp-input pl-8 text-sm"
+            />
+          </div>
+          <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} className="amp-input w-auto text-sm">
+            <option value="">Tous les statuts</option>
+            {Object.entries(STATUT_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <select value={filtreMode} onChange={(e) => setFiltreMode(e.target.value)} className="amp-input w-auto text-sm">
+            <option value="">Tous les modes</option>
+            {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="amp-input w-auto text-sm" title="Date début" />
+          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="amp-input w-auto text-sm" title="Date fin" />
+          {hasFiltres && (
+            <button onClick={resetFiltres} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50">
+              <X size={13} /> Réinitialiser
+            </button>
+          )}
+        </div>
+        {hasFiltres && <p className="text-xs text-blue-600 font-medium">{paiements?.length || 0} résultat(s) avec les filtres actifs</p>}
+      </div>
 
       {/* Onglets */}
       <div className="flex items-center gap-3 flex-wrap">

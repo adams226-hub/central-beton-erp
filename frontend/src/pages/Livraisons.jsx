@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, AlertTriangle, Navigation, FileDown } from 'lucide-react';
+import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, AlertTriangle, Navigation, FileDown, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { livraisonsAPI, commandesAPI, equipementsAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -228,11 +228,22 @@ const Livraisons = () => {
   const [showForm, setShowForm] = useState(false);
   const [livrerTarget, setLivrerTarget] = useState(null);
   const [filtre, setFiltre] = useState('');
+  const [search, setSearch] = useState('');
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
+
+  const resetFiltres = () => { setSearch(''); setDateDebut(''); setDateFin(''); };
+  const hasFiltres = search || dateDebut || dateFin;
 
   const { data: livraisons, isLoading } = useQuery({
-    queryKey: ['livraisons', filtre],
-    queryFn: () => livraisonsAPI.lister(filtre ? { statut: filtre } : {}),
-    select: (r) => r.data.data,
+    queryKey: ['livraisons', filtre, search, dateDebut, dateFin],
+    queryFn: () => livraisonsAPI.lister({
+      statut: filtre || undefined,
+      search: search || undefined,
+      dateDebut: dateDebut || undefined,
+      dateFin: dateFin || undefined,
+    }),
+    select: (r) => r.data.data?.livraisons ?? r.data.data ?? [],
     refetchInterval: 30000,
   });
 
@@ -311,20 +322,35 @@ const Livraisons = () => {
         </div>
       )}
 
-      {/* Filtres + bouton */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-          {[['', 'Toutes'], ['PLANIFIEE', 'Planifiées'], ['EN_ROUTE', 'En route'], ['LIVREE', 'Livrées']].map(([v, l]) => (
-            <button key={v} onClick={() => setFiltre(v)} className={cn('px-3 py-2 text-sm font-medium', filtre === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50')}>
-              {l}
+      {/* Filtres */}
+      <div className="amp-card p-4 space-y-3">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+            {[['', 'Toutes'], ['PLANIFIEE', 'Planifiées'], ['EN_ROUTE', 'En route'], ['LIVREE', 'Livrées'], ['ANNULEE', 'Annulées']].map(([v, l]) => (
+              <button key={v} onClick={() => setFiltre(v)} className={cn('px-3 py-1.5 text-sm font-medium', filtre === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50')}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Client, référence, chauffeur..." className="amp-input pl-8 text-sm" />
+          </div>
+          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="amp-input w-auto text-sm" title="Date début" />
+          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="amp-input w-auto text-sm" title="Date fin" />
+          {hasFiltres && (
+            <button onClick={resetFiltres} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50">
+              <X size={13} /> Réinitialiser
             </button>
-          ))}
+          )}
+          {canEdit && (
+            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium ml-auto">
+              <Plus size={15} /> Planifier livraison
+            </button>
+          )}
         </div>
-        {canEdit && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium ml-auto">
-            <Plus size={15} /> Planifier livraison
-          </button>
-        )}
+        {hasFiltres && <p className="text-xs text-blue-600 font-medium">{livraisons?.length || 0} résultat(s) avec les filtres actifs</p>}
       </div>
 
       {/* Liste */}

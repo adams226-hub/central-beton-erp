@@ -46,4 +46,14 @@ const enregistrerMaintenance = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, message: 'Maintenance enregistrée', data });
 });
 
-module.exports = { lister, getDisponibles, getAmortissements, getOne, getMaintenances, creer, modifier, changerStatut, enregistrerMaintenance };
+const desactiver = asyncHandler(async (req, res) => {
+  await service.desactiver(req.params.id, req.user.id);
+  res.json({ success: true, message: 'Équipement désactivé' });
+});
+
+const reactiver = asyncHandler(async (req, res) => {
+  const data = await service.reactiver(req.params.id);
+  res.json({ success: true, message: 'Équipement réactivé', data });
+});
+
+module.exports = { lister, getDisponibles, getAmortissements, getOne, getMaintenances, creer, modifier, changerStatut, enregistrerMaintenance, desactiver, reactiver };

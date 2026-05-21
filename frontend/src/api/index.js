@@ -71,7 +71,12 @@ export const productionAPI = {
 // ─── Équipements ──────────────────────────────────────
 export const equipementsAPI = {
   lister: (params) => api.get('/equipements', { params }),
+  getOne: (id) => api.get(`/equipements/${id}`),
+  creer: (data) => api.post('/equipements', data),
+  modifier: (id, data) => api.put(`/equipements/${id}`, data),
   changerStatut: (id, data) => api.patch(`/equipements/${id}/statut`, data),
+  desactiver: (id) => api.delete(`/equipements/${id}`),
+  reactiver: (id) => api.patch(`/equipements/${id}/reactiver`),
   enregistrerMaintenance: (id, data) => api.post(`/equipements/${id}/maintenances`, data),
   getAmortissements: () => api.get('/equipements/amortissements'),
 };

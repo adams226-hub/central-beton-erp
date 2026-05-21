@@ -8,16 +8,29 @@ const lister = async (filters = {}) => {
   if (filters.statut) where.statut = filters.statut;
   if (filters.mode) where.modePaiement = filters.mode;
   if (filters.commandeId) where.commandeId = filters.commandeId;
+  if (filters.search) {
+    where.commande = { nomClient: { contains: filters.search, mode: 'insensitive' } };
+  }
+  if (filters.dateDebut || filters.dateFin) {
+    where.createdAt = {};
+    if (filters.dateDebut) where.createdAt.gte = new Date(filters.dateDebut);
+    if (filters.dateFin) where.createdAt.lte = new Date(filters.dateFin + 'T23:59:59');
+  }
 
-  return prisma.paiement.findMany({
-    where,
-    include: {
-      commande: { select: { reference: true, nomClient: true, montantCommande: true } },
-      user: { select: { nom: true, prenom: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: parseInt(filters.limit) || 100,
-  });
+  const [paiements, total] = await prisma.$transaction([
+    prisma.paiement.findMany({
+      where,
+      include: {
+        commande: { select: { id: true, reference: true, nomClient: true, montantCommande: true } },
+        user: { select: { nom: true, prenom: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(filters.limit) || 100,
+    }),
+    prisma.paiement.count({ where }),
+  ]);
+
+  return { paiements, total };
 };
 
 const getParCommande = async (commandeId) => {

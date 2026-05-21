@@ -169,4 +169,18 @@ const enregistrerMaintenance = async (equipementId, data, userId) => {
   return maintenance;
 };
 
-module.exports = { lister, getDisponibles, getAmortissements, getOne, getMaintenances, creer, modifier, changerStatut, enregistrerMaintenance };
+const desactiver = async (id, userId) => {
+  const equip = await prisma.equipement.findUnique({ where: { id } });
+  if (!equip) throw Object.assign(new Error('Équipement introuvable'), { statusCode: 404 });
+  const enCours = await prisma.productionEquipement.count({
+    where: { equipementId: id, production: { statut: { in: ['EN_COURS', 'CHARGEMENT', 'LIVRAISON'] } } },
+  });
+  if (enCours > 0) throw Object.assign(new Error('Impossible : équipement actuellement en production'), { statusCode: 400 });
+  return prisma.equipement.update({ where: { id }, data: { isActive: false, statut: 'HORS_SERVICE' } });
+};
+
+const reactiver = async (id) => {
+  return prisma.equipement.update({ where: { id }, data: { isActive: true, statut: 'DISPONIBLE' } });
+};
+
+module.exports = { lister, getDisponibles, getAmortissements, getOne, getMaintenances, creer, modifier, changerStatut, enregistrerMaintenance, desactiver, reactiver };

@@ -15,5 +15,8 @@ router.post('/', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.creer);
 router.put('/:id', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.modifier);
 router.patch('/:id/statut', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.changerStatut);
 router.post('/:id/maintenance', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.enregistrerMaintenance);
+router.post('/:id/maintenances', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.enregistrerMaintenance);
+router.delete('/:id', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.desactiver);
+router.patch('/:id/reactiver', requireRoles('PDG', 'CHEF_DE_SITE'), ctrl.reactiver);
 
 module.exports = router;

@@ -32,7 +32,7 @@ const exportEtatLivraison = asyncHandler(async (req, res) => {
   const commande = await prisma.commande.findUnique({ where: { id: commandeId } });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
 
-  const livraisons = await service.lister({ commandeId, limit: 1000 });
+  const { livraisons } = await service.lister({ commandeId, limit: 1000 });
 
   const doc = generateEtatLivraison(commande, livraisons);
   res.setHeader('Content-Type', 'application/pdf');

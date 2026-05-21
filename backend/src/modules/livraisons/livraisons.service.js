@@ -8,17 +8,34 @@ const lister = async (filters = {}) => {
   if (filters.statut) where.statut = filters.statut;
   if (filters.productionId) where.productionId = filters.productionId;
   if (filters.commandeId) where.commandeId = filters.commandeId;
+  if (filters.search) {
+    where.OR = [
+      { commande: { nomClient: { contains: filters.search, mode: 'insensitive' } } },
+      { commande: { reference: { contains: filters.search, mode: 'insensitive' } } },
+      { chauffeur: { contains: filters.search, mode: 'insensitive' } },
+    ];
+  }
+  if (filters.dateDebut || filters.dateFin) {
+    where.createdAt = {};
+    if (filters.dateDebut) where.createdAt.gte = new Date(filters.dateDebut);
+    if (filters.dateFin) where.createdAt.lte = new Date(filters.dateFin + 'T23:59:59');
+  }
 
-  return prisma.livraison.findMany({
-    where,
-    include: {
-      production: { select: { reference: true } },
-      commande: { select: { reference: true, nomClient: true, adresseChantier: true } },
-      toupie: { select: { nom: true, code: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: parseInt(filters.limit) || 50,
-  });
+  const [livraisons, total] = await prisma.$transaction([
+    prisma.livraison.findMany({
+      where,
+      include: {
+        production: { select: { reference: true } },
+        commande: { select: { reference: true, nomClient: true, adresseChantier: true } },
+        toupie: { select: { nom: true, code: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(filters.limit) || 100,
+    }),
+    prisma.livraison.count({ where }),
+  ]);
+
+  return { livraisons, total };
 };
 
 const getPlanning = async () => {
