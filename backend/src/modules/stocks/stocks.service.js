@@ -119,26 +119,32 @@ const enregistrerEntree = async (data, userId) => {
 };
 
 const deduireStockProduction = async (productionId, commandeId, formulation, volume, userId) => {
-  const mouvements = [];
-
-  const matieres = [
-    { type: 'CIMENT',      quantite: formulation.ciment * volume },
-    { type: 'SABLE',       quantite: formulation.sable * volume },
-    { type: 'GRAVIER_515', quantite: formulation.gravier515 * volume * 1000 },
-    { type: 'GRAVIER_1525',quantite: formulation.gravier1525 * volume * 1000 },
-    { type: 'HYDROFUGE',   quantite: formulation.hydrofuge * volume },
-    { type: 'POWERFLOW',   quantite: formulation.powerflow * volume },
-    { type: 'GASOIL',      quantite: (formulation.gasoilToupie + formulation.gasoilChargeur + formulation.gasoilPompe + formulation.gasoilGroupe) * (volume / 200) },
+  const besoins = [
+    { type: 'CIMENT',       quantite: formulation.ciment * volume },
+    { type: 'SABLE',        quantite: formulation.sable * volume },
+    { type: 'GRAVIER_515',  quantite: formulation.gravier515 * volume * 1000 },
+    { type: 'GRAVIER_1525', quantite: formulation.gravier1525 * volume * 1000 },
+    { type: 'HYDROFUGE',    quantite: formulation.hydrofuge * volume },
+    { type: 'POWERFLOW',    quantite: formulation.powerflow * volume },
+    { type: 'GASOIL',       quantite: (formulation.gasoilToupie + formulation.gasoilChargeur + formulation.gasoilPompe + formulation.gasoilGroupe) * (volume / 200) },
   ].filter((m) => m.quantite > 0);
 
-  for (const m of matieres) {
-    const stock = await prisma.stockMatiere.findFirst({ where: { materiau: m.type } });
-    if (!stock) continue;
+  // 1. Récupérer tous les stocks en UNE seule requête
+  const types = besoins.map((m) => m.type);
+  const stocks = await prisma.stockMatiere.findMany({ where: { materiau: { in: types } } });
+  const stockMap = Object.fromEntries(stocks.map((s) => [s.materiau, s]));
 
+  // 2. Calculer les nouvelles quantités
+  const now = new Date();
+  const mouvements = [];
+  const operations = [];
+
+  for (const m of besoins) {
+    const stock = stockMap[m.type];
+    if (!stock) continue;
     const quantiteApres = Math.max(0, stock.quantite - m.quantite);
 
-    // Mouvement + mise à jour stock en batch (atomique, rapide)
-    await prisma.$transaction([
+    operations.push(
       prisma.mouvementStock.create({
         data: {
           stockId: stock.id,
@@ -154,32 +160,44 @@ const deduireStockProduction = async (productionId, commandeId, formulation, vol
       }),
       prisma.stockMatiere.update({
         where: { id: stock.id },
-        data: { quantite: quantiteApres, dernierMouvement: new Date() },
-      }),
-    ]);
+        data: { quantite: quantiteApres, dernierMouvement: now },
+      })
+    );
 
-    // Alertes stock après déduction (hors transaction)
+    mouvements.push({ materiau: m.type, quantite: m.quantite, quantiteApres, stock });
+  }
+
+  // 3. Une seule transaction pour toutes les matières
+  if (operations.length > 0) {
+    await prisma.$transaction(operations, { timeout: 30000 });
+  }
+
+  // 4. Alertes stock APRÈS la transaction (sans bloquer le démarrage)
+  const usersAlerte = await prisma.user.findMany({
+    where: { role: { in: ['PDG', 'CHEF_DE_SITE', 'CHEF_COMPTABLE'] }, isActive: true },
+    select: { id: true, role: true },
+  });
+
+  for (const { materiau, quantiteApres, stock } of mouvements) {
     if (quantiteApres <= stock.seuilCritique) {
-      const users = await prisma.user.findMany({ where: { role: { in: ['PDG', 'CHEF_DE_SITE'] } } });
-      for (const u of users) {
-        await prisma.notification.create({
+      const notifOps = usersAlerte.map((u) =>
+        prisma.notification.create({
           data: {
             userId: u.id,
             titre: 'STOCK_CRITIQUE',
             message: `Stock CRITIQUE : ${stock.designation} — ${quantiteApres.toFixed(1)} ${stock.unite} restants`,
             type: 'STOCK_CRITIQUE',
           },
-        });
-        emitToRole(u.role, 'notification:nouvelle', { type: 'STOCK_CRITIQUE', message: `Stock critique : ${stock.designation}` });
-      }
+        })
+      );
+      if (notifOps.length > 0) await prisma.$transaction(notifOps, { timeout: 15000 });
+      emitToAll('stock:alerte', { niveau: 'CRITIQUE', designation: stock.designation, quantite: quantiteApres });
     } else if (quantiteApres <= stock.seuilAlerte) {
-      emitToRole('CHEF_DE_SITE', 'stock:alerte', { materiau: m.type, designation: stock.designation, quantite: quantiteApres });
+      emitToRole('CHEF_DE_SITE', 'stock:alerte', { materiau, designation: stock.designation, quantite: quantiteApres });
     }
-
-    mouvements.push({ materiau: m.type, quantite: m.quantite });
   }
 
-  return mouvements;
+  return mouvements.map(({ materiau, quantite }) => ({ materiau, quantite }));
 };
 
 const ajusterStock = async (data, userId) => {
