@@ -43,8 +43,8 @@ const Commandes = () => {
     try {
       await commandesAPI.valider(id, { commentaire: '' });
       toast.success('Commande validée');
-      qc.invalidateQueries(['commandes']);
-      qc.invalidateQueries(['statistiques']);
+      qc.invalidateQueries({ queryKey: ['commandes'] });
+      qc.invalidateQueries({ queryKey: ['statistiques'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur de validation');
     } finally { setActionLoading(null); }
@@ -56,8 +56,8 @@ const Commandes = () => {
     try {
       await commandesAPI.rejeter(rejectId, { motif: rejectMotif });
       toast.success('Commande rejetée');
-      qc.invalidateQueries(['commandes']);
-      qc.invalidateQueries(['statistiques']);
+      qc.invalidateQueries({ queryKey: ['commandes'] });
+      qc.invalidateQueries({ queryKey: ['statistiques'] });
       setRejectId(null); setRejectMotif('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
@@ -257,7 +257,7 @@ const Commandes = () => {
               </div>
               <div className="p-6">
                 <CommandeForm
-                  onSuccess={() => { setShowForm(false); qc.invalidateQueries(['commandes']); qc.invalidateQueries(['statistiques']); }}
+                  onSuccess={() => { setShowForm(false); qc.invalidateQueries({ queryKey: ['commandes'] }); qc.invalidateQueries({ queryKey: ['statistiques'] }); }}
                   onCancel={() => setShowForm(false)}
                 />
               </div>

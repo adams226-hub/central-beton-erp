@@ -114,7 +114,7 @@ const Alertes = () => {
     onSuccess: (res) => {
       const n = res.data.data.generees;
       toast.success(n > 0 ? `${n} nouvelle(s) alerte(s) générée(s)` : 'Aucune nouvelle alerte détectée');
-      qc.invalidateQueries(['alertes']);
+      qc.invalidateQueries({ queryKey: ['alertes'] });
     },
     onError: () => toast.error('Erreur lors de la génération'),
   });
@@ -123,7 +123,7 @@ const Alertes = () => {
     mutationFn: (id) => alertesAPI.resoudre(id),
     onSuccess: () => {
       toast.success('Alerte résolue');
-      qc.invalidateQueries(['alertes']);
+      qc.invalidateQueries({ queryKey: ['alertes'] });
     },
     onError: () => toast.error('Erreur'),
   });
@@ -132,7 +132,7 @@ const Alertes = () => {
     mutationFn: () => alertesAPI.resoudreTout(),
     onSuccess: () => {
       toast.success('Toutes les alertes résolues');
-      qc.invalidateQueries(['alertes']);
+      qc.invalidateQueries({ queryKey: ['alertes'] });
     },
   });
 

@@ -370,7 +370,7 @@ const Equipements = () => {
     select: (r) => r.data.data,
   });
 
-  const refresh = () => { qc.invalidateQueries(['equipements']); qc.invalidateQueries(['amortissements']); };
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['equipements'] }); qc.invalidateQueries({ queryKey: ['amortissements'] }); };
 
   const handleStatut = async (id, statut) => {
     try {

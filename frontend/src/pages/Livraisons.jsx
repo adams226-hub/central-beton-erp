@@ -247,13 +247,21 @@ const Livraisons = () => {
     refetchInterval: 30000,
   });
 
+  // Unfiltered data for KPIs and enRoute alert (always reflects real totals)
+  const { data: livraisonsAll } = useQuery({
+    queryKey: ['livraisons', 'all'],
+    queryFn: () => livraisonsAPI.lister({ limit: 1000 }),
+    select: (r) => r.data.data?.livraisons ?? r.data.data ?? [],
+    refetchInterval: 30000,
+  });
+
   const canEdit = hasPermission('livraison:write');
 
   const demarrer = async (id) => {
     try {
       await livraisonsAPI.demarrer(id);
       toast.success('Livraison démarrée — toupie en route');
-      qc.invalidateQueries(['livraisons']);
+      qc.invalidateQueries({ queryKey: ['livraisons'] });
     } catch (err) { toast.error(err.response?.data?.message || 'Erreur'); }
   };
 
@@ -262,7 +270,7 @@ const Livraisons = () => {
     try {
       await livraisonsAPI.annuler(id);
       toast.success('Livraison annulée');
-      qc.invalidateQueries(['livraisons']);
+      qc.invalidateQueries({ queryKey: ['livraisons'] });
     } catch (err) { toast.error('Erreur'); }
   };
 
@@ -286,12 +294,12 @@ const Livraisons = () => {
   const onSuccess = () => {
     setShowForm(false);
     setLivrerTarget(null);
-    qc.invalidateQueries(['livraisons']);
+    qc.invalidateQueries({ queryKey: ['livraisons'] });
   };
 
   if (isLoading) return <PageLoader />;
 
-  const enRoute = livraisons?.filter((l) => l.statut === 'EN_ROUTE') || [];
+  const enRoute = livraisonsAll?.filter((l) => l.statut === 'EN_ROUTE') || [];
 
   return (
     <div className="space-y-5">
@@ -305,14 +313,14 @@ const Livraisons = () => {
         </div>
       )}
 
-      {/* KPIs */}
-      {livraisons && (
+      {/* KPIs — always based on full unfiltered data */}
+      {livraisonsAll && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Planifiées', value: livraisons.filter((l) => l.statut === 'PLANIFIEE').length, color: 'text-blue-700' },
-            { label: 'En route', value: livraisons.filter((l) => l.statut === 'EN_ROUTE').length, color: 'text-amber-700' },
-            { label: 'Livrées', value: livraisons.filter((l) => l.statut === 'LIVREE').length, color: 'text-green-700' },
-            { label: 'Volume livré (m³)', value: livraisons.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toFixed(1), color: 'text-gray-800' },
+            { label: 'Planifiées', value: livraisonsAll.filter((l) => l.statut === 'PLANIFIEE').length, color: 'text-blue-700' },
+            { label: 'En route', value: livraisonsAll.filter((l) => l.statut === 'EN_ROUTE').length, color: 'text-amber-700' },
+            { label: 'Livrées', value: livraisonsAll.filter((l) => l.statut === 'LIVREE').length, color: 'text-green-700' },
+            { label: 'Volume livré (m³)', value: livraisonsAll.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toFixed(1), color: 'text-gray-800' },
           ].map(({ label, value, color }) => (
             <div key={label} className="amp-stat-card">
               <p className="text-sm text-gray-500">{label}</p>

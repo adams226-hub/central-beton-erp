@@ -138,7 +138,7 @@ const Paiements = () => {
       dateDebut: dateDebut || undefined,
       dateFin: dateFin || undefined,
     }),
-    select: (r) => r.data.data?.paiements ?? r.data.data ?? [],
+    select: (r) => r.data.data?.paiements ?? [],
   });
 
   const { data: stats } = useQuery({
@@ -158,7 +158,8 @@ const Paiements = () => {
     try {
       await paiementsAPI.confirmer(id);
       toast.success('Paiement confirmé');
-      qc.invalidateQueries(['paiements', 'paiements-stats']);
+      qc.invalidateQueries({ queryKey: ['paiements'] });
+      qc.invalidateQueries({ queryKey: ['paiements-stats'] });
     } catch (err) { toast.error('Erreur'); }
   };
 
@@ -181,7 +182,12 @@ const Paiements = () => {
 
   if (isLoading) return <PageLoader />;
 
-  const onSuccess = () => { setShowForm(false); qc.invalidateQueries(['paiements', 'paiements-stats', 'creances']); };
+  const onSuccess = () => {
+    setShowForm(false);
+    qc.invalidateQueries({ queryKey: ['paiements'] });
+    qc.invalidateQueries({ queryKey: ['paiements-stats'] });
+    qc.invalidateQueries({ queryKey: ['creances'] });
+  };
 
   return (
     <div className="space-y-5">

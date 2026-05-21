@@ -169,7 +169,7 @@ const Formulations = () => {
     try {
       await formulationsAPI.supprimer(id);
       toast.success('Formulation désactivée');
-      qc.invalidateQueries(['formulations']);
+      qc.invalidateQueries({ queryKey: ['formulations'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
     }
@@ -233,7 +233,7 @@ const Formulations = () => {
               <div className="p-6">
                 <FormulationForm
                   formulation={editTarget}
-                  onSuccess={() => { setShowForm(false); setEditTarget(null); qc.invalidateQueries(['formulations']); }}
+                  onSuccess={() => { setShowForm(false); setEditTarget(null); qc.invalidateQueries({ queryKey: ['formulations'] }); }}
                   onCancel={() => { setShowForm(false); setEditTarget(null); }}
                 />
               </div>

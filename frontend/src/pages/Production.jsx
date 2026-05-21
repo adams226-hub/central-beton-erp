@@ -179,7 +179,8 @@ const Production = () => {
     try {
       await productionAPI.changerStatut(id, { statut });
       toast.success(`Statut mis à jour : ${STATUT_PROD[statut]?.label}`);
-      qc.invalidateQueries(['productions']);
+      qc.invalidateQueries({ queryKey: ['productions'] });
+      qc.invalidateQueries({ queryKey: ['production-stats'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
     }
@@ -190,10 +191,10 @@ const Production = () => {
   const onSuccess = () => {
     setShowDemarrer(false);
     setTerminerTarget(null);
-    qc.invalidateQueries(['productions']);
-    qc.invalidateQueries(['production-stats']);
-    qc.invalidateQueries(['statistiques']);
-    qc.invalidateQueries(['stocks']);
+    qc.invalidateQueries({ queryKey: ['productions'] });
+    qc.invalidateQueries({ queryKey: ['production-stats'] });
+    qc.invalidateQueries({ queryKey: ['statistiques'] });
+    qc.invalidateQueries({ queryKey: ['stocks'] });
   };
 
   return (

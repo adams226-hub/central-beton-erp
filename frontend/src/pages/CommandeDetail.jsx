@@ -45,9 +45,9 @@ const CommandeDetail = () => {
     try {
       await commandesAPI.valider(id, { commentaire: '' });
       toast.success('Commande validée avec succès !');
-      qc.invalidateQueries(['commande', id]);
-      qc.invalidateQueries(['commandes']);
-      qc.invalidateQueries(['statistiques']);
+      qc.invalidateQueries({ queryKey: ['commande', id] });
+      qc.invalidateQueries({ queryKey: ['commandes'] });
+      qc.invalidateQueries({ queryKey: ['statistiques'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
     }
@@ -58,8 +58,8 @@ const CommandeDetail = () => {
     try {
       await commandesAPI.rejeter(id, { motif: rejectMotif });
       toast.success('Commande rejetée');
-      qc.invalidateQueries(['commande', id]);
-      qc.invalidateQueries(['commandes']);
+      qc.invalidateQueries({ queryKey: ['commande', id] });
+      qc.invalidateQueries({ queryKey: ['commandes'] });
       setShowReject(false);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
@@ -101,7 +101,7 @@ const CommandeDetail = () => {
         <h2 className="font-bold text-gray-800 text-lg mb-5">Modifier la commande {commande.reference}</h2>
         <CommandeForm
           commande={commande}
-          onSuccess={() => { setEditing(false); qc.invalidateQueries(['commande', id]); }}
+          onSuccess={() => { setEditing(false); qc.invalidateQueries({ queryKey: ['commande', id] }); }}
           onCancel={() => setEditing(false)}
         />
       </div>

@@ -142,8 +142,8 @@ const Stocks = () => {
 
   const onSuccess = () => {
     setEntreeTarget(null);
-    qc.invalidateQueries(['stocks']);
-    qc.invalidateQueries(['mouvements']);
+    qc.invalidateQueries({ queryKey: ['stocks'] });
+    qc.invalidateQueries({ queryKey: ['mouvements'] });
   };
 
   return (
