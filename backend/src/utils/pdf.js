@@ -1,4 +1,6 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const LOGO_PATH = path.join(__dirname, '../../assets/logo-amp.png');
 
 const BLEU       = '#1e40af';
 const BLEU_CLAIR = '#dbeafe';
@@ -78,7 +80,8 @@ const generateDevis = (commande, calculs) => {
   // ── EN-TÊTE ────────────────────────────────────────────────────────────
   // Bandeau bleu supérieur
   doc.rect(0, 0, 595, 38).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(18).font('Helvetica-Bold').fillColor(BLANC).text('AMP BÉTON', 45, 10);
+  doc.rect(42, 4, 86, 30).fillColor(BLANC).fill();
+  doc.image(LOGO_PATH, 43, 5, { fit: [84, 28] });
   doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('BUDGET FOURNITURE', 310, 10, { align: 'right', width: 240 });
 
   doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
@@ -263,7 +266,8 @@ const generateRapportBenefices = (data, dateDebut, dateFin) => {
 
   // ── EN-TÊTE ─────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('AMP BÉTON', 40, 10);
+  doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
+  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
   doc.fontSize(13).font('Helvetica-Bold').fillColor(BLANC)
     .text('RAPPORT BÉNÉFICES PAR COMMANDE', 200, 12, { align: 'right', width: 355 });
 
@@ -456,8 +460,7 @@ const generateFactureProforma = (commande) => {
   // ── Logo AMP BÉTON ────────────────────────────────────────────────────────
   // Fond header blanc — pas de bandeau coloré pour imiter le style proforma
   doc.rect(L, 30, 120, 70).fillColor('#EEF2FF').fill();
-  doc.fontSize(30).font('Helvetica-Bold').fillColor(BLEU_FONCE).text('AMP', L + 8, 38);
-  doc.fontSize(13).font('Helvetica-Bold').fillColor(BLEU_FONCE).text('BÉTON', L + 8, 72);
+  doc.image(LOGO_PATH, L + 5, 35, { fit: [110, 60] });
 
   // Date en haut à droite
   doc.fontSize(10).font('Helvetica').fillColor(NOIR)
@@ -578,7 +581,8 @@ const generateEtatLivraison = (commande, livraisons) => {
 
   // ── En-tête ───────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('AMP BÉTON', 40, 11);
+  doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
+  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
   doc.fontSize(12).font('Helvetica-Bold').fillColor(BLANC)
     .text('ÉTAT DE LIVRAISON', 200, 13, { align: 'right', width: 355 });
 
@@ -705,7 +709,8 @@ const generateEtatPaiement = (commande, result) => {
 
   // ── En-tête ───────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('AMP BÉTON', 40, 11);
+  doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
+  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
   doc.fontSize(12).font('Helvetica-Bold').fillColor(BLANC)
     .text('ÉTAT DE PAIEMENT', 200, 13, { align: 'right', width: 355 });
 
