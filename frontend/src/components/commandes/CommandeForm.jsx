@@ -1,13 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Calculator, Save, X, Edit3, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calculator, Save, X, Edit3, RefreshCw, ChevronDown, ChevronUp, MapPin, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { formulationsAPI, commandesAPI } from '../../api';
 import { formatMontant } from '../../utils/formatters';
+
+// ─── Bordereau de prix AMP BETON ─────────────────────────────────────────────
+const TARIF_BORDEREAU = {
+  ZONE1: { C5: 65000, C15: 75000, C20: 90000, C25: 97000, C30: 107000, C35: 118000, C40: 125000 },
+  ZONE2: { C5: 74000, C15: 85500, C20: 100000, C25: 105000, C30: 116000, C35: 127000, C40: 133000 },
+  ZONE3: { C5: 77000, C15: 90000, C20: 106000, C25: 113000, C30: 123000, C35: 134000, C40: 140000 },
+};
+const ZONES = [
+  { id: 'ZONE1', label: 'Zone 1', desc: '1 – 50 km' },
+  { id: 'ZONE2', label: 'Zone 2', desc: '50 – 100 km' },
+  { id: 'ZONE3', label: 'Zone 3', desc: '100 – 150 km' },
+];
+const getZoneAuto = (km) => {
+  const d = parseFloat(km) || 0;
+  if (d > 0 && d <= 50) return 'ZONE1';
+  if (d > 50 && d <= 100) return 'ZONE2';
+  if (d > 100 && d <= 150) return 'ZONE3';
+  return null;
+};
 
 const schema = z.object({
   nomClient: z.string().min(2, 'Nom requis (min 2 caractères)'),
@@ -28,9 +47,11 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const isEdit = !!commande;
   const [calculs, setCalculs] = useState(null);
   const [calculsLoading, setCalculsLoading] = useState(false);
-  const [overrides, setOverrides] = useState({});  // valeurs manuellement modifiées
+  const [overrides, setOverrides] = useState({});
   const [showDetails, setShowDetails] = useState(false);
   const [formulationId, setFormulationId] = useState(commande?.formulationId || '');
+  const [zoneManuelle, setZoneManuelle] = useState(null); // null = auto-détectée depuis distance
+  const montantManualRef = useRef(false); // l'utilisateur a-t-il saisi le montant manuellement ?
 
   const { data: formulationsData } = useQuery({
     queryKey: ['formulations'],
@@ -38,7 +59,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
     select: (res) => res.data.data,
   });
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: commande ? {
       nomClient: commande.nomClient,
@@ -88,6 +109,24 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
     }, 600);
     return () => clearTimeout(timer);
   }, [volume, formulationId, montantCommande, distanceLivraison]);
+
+  // ─── Calcul zone + tarif bordereau ──────────────────────────────────────
+  const zoneAuto = getZoneAuto(distanceLivraison);
+  const zone = zoneManuelle || zoneAuto;
+  const prixUnitaireBordereau = zone && typeBeton ? (TARIF_BORDEREAU[zone]?.[typeBeton] ?? null) : null;
+  const montantSuggere = prixUnitaireBordereau && volume ? Math.round(prixUnitaireBordereau * parseFloat(volume)) : null;
+
+  // Quand la distance change → réinitialiser la zone manuelle
+  useEffect(() => {
+    setZoneManuelle(null);
+  }, [distanceLivraison]);
+
+  // Auto-remplir montantCommande depuis le bordereau (sauf si modifié manuellement)
+  useEffect(() => {
+    if (montantSuggere && !montantManualRef.current) {
+      setValue('montantCommande', montantSuggere, { shouldValidate: false });
+    }
+  }, [montantSuggere, setValue]);
 
   const valeur = (key) => overrides[key] !== undefined ? overrides[key] : (calculs?.[key] ?? '');
   const setOverride = (key, val) => setOverrides((prev) => ({ ...prev, [key]: val === '' ? undefined : Number(val) }));
@@ -188,17 +227,93 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             <input {...register('dateLivraison')} type="date" min={new Date().toISOString().split('T')[0]} className="amp-input" />
             {errors.dateLivraison && <p className="text-red-500 text-xs mt-1">{errors.dateLivraison.message}</p>}
           </div>
+          {/* Distance + Zone */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              <MapPin size={13} className="text-blue-500" /> Distance de livraison (km)
+            </label>
+            <div className="flex items-start gap-3 flex-wrap">
+              <div className="flex-1 min-w-[120px]">
+                <input {...register('distanceLivraison')} type="number" step="1" min="0" placeholder="Ex : 35" className="amp-input" />
+                {errors.distanceLivraison && <p className="text-red-500 text-xs mt-1">{errors.distanceLivraison.message}</p>}
+              </div>
+              {/* Sélecteur de zone */}
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-gray-500">Zone tarifaire</p>
+                <div className="flex gap-1">
+                  {ZONES.map((z) => {
+                    const isActive = zone === z.id;
+                    const isAuto = zoneAuto === z.id && !zoneManuelle;
+                    return (
+                      <button
+                        key={z.id}
+                        type="button"
+                        onClick={() => setZoneManuelle(zoneManuelle === z.id ? null : z.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          isActive
+                            ? 'bg-blue-700 text-white border-blue-700'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                        }`}
+                        title={z.desc}
+                      >
+                        {z.label}
+                        {isAuto && <span className="ml-1 opacity-70">↑</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  {zone ? `${ZONES.find(z => z.id === zone)?.desc}${!zoneManuelle ? ' (auto)' : ' (manuel)'}` : 'Entrez une distance'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Prix bordereau affiché */}
+          {prixUnitaireBordereau && (
+            <div className="md:col-span-3">
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3"
+              >
+                <Tag size={14} className="text-blue-600 flex-shrink-0" />
+                <div className="flex flex-wrap gap-4 flex-1">
+                  <div>
+                    <p className="text-[10px] text-blue-500 uppercase font-semibold">Zone tarifaire</p>
+                    <p className="text-sm font-bold text-blue-800">{ZONES.find(z => z.id === zone)?.label} — {ZONES.find(z => z.id === zone)?.desc}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-blue-500 uppercase font-semibold">Prix unitaire {typeBeton}</p>
+                    <p className="text-sm font-bold text-blue-800">{formatMontant(prixUnitaireBordereau)} / m³</p>
+                  </div>
+                  {volume > 0 && (
+                    <div>
+                      <p className="text-[10px] text-blue-500 uppercase font-semibold">Montant suggéré ({volume} m³)</p>
+                      <p className="text-sm font-bold text-green-700">{formatMontant(montantSuggere)}</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Montant de vente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Distance livraison (km)
-              <span className="ml-1 text-xs text-gray-400">— affecte le prix transport</span>
+              Montant de vente (FCFA)
+              {prixUnitaireBordereau && <span className="ml-1 text-xs text-blue-500">— pré-rempli depuis le bordereau</span>}
             </label>
-            <input {...register('distanceLivraison')} type="number" step="1" min="0" placeholder="Ex : 15" className="amp-input" />
-            {errors.distanceLivraison && <p className="text-red-500 text-xs mt-1">{errors.distanceLivraison.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Montant vendu (FCFA)</label>
-            <input {...register('montantCommande')} type="number" placeholder="Ex : 21 000 000" className="amp-input" />
+            <input
+              {...register('montantCommande')}
+              type="number"
+              placeholder="Ex : 21 000 000"
+              className="amp-input"
+              onChange={(e) => {
+                montantManualRef.current = true;
+                register('montantCommande').onChange(e);
+              }}
+            />
             {errors.montantCommande && <p className="text-red-500 text-xs mt-1">{errors.montantCommande.message}</p>}
           </div>
           <div className="md:col-span-2">
