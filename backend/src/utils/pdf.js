@@ -70,7 +70,7 @@ function ligneFinanciere(doc, y, label, valeur, bg, textColor = NOIR, bold = fal
 }
 
 const generateDevis = (commande, calculs) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 45, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 45, bottom: 0, left: 45, right: 45 }, bufferPages: true });
   const c = commande;
   const k = calculs;
   const distance = c.distanceLivraison || 0;
@@ -79,7 +79,7 @@ const generateDevis = (commande, calculs) => {
   // Bandeau bleu supérieur
   doc.rect(0, 0, 595, 38).fillColor(BLEU_FONCE).fill();
   doc.fontSize(18).font('Helvetica-Bold').fillColor(BLANC).text('AMP BÉTON', 45, 10);
-  doc.fontSize(20).font('Helvetica-Bold').fillColor(BLANC).text('DEVIS', 350, 8, { align: 'right', width: 200 });
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('BUDGET FOURNITURE', 310, 10, { align: 'right', width: 240 });
 
   doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
     .text('Centrale à Béton — , Ouagadougou, Burkina Faso', 45, 46)
@@ -237,7 +237,7 @@ const generateDevis = (commande, calculs) => {
   doc.moveTo(45, y).lineTo(550, y).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
   y += 8;
   doc.fontSize(8).font('Helvetica').fillColor(GRIS)
-    .text('Conditions : Paiement à la livraison. Validité du devis : 30 jours.', 45, y, { width: 300 });
+    .text('Conditions : Paiement à la livraison. Validité du budget : 30 jours.', 45, y, { width: 300 });
   doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
     .text('Signature & Cachet AMP BÉTON', 300, y, { align: 'right', width: 250 });
 
@@ -257,7 +257,7 @@ const generateDevis = (commande, calculs) => {
  * Génère un PDF professionnel du rapport Bénéfices par commande
  */
 const generateRapportBenefices = (data, dateDebut, dateFin) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 40, bottom: 0, left: 40, right: 40 }, bufferPages: true });
   const totaux = data.totaux || {};
   const commandes = data.commandes || [];
 
@@ -441,7 +441,7 @@ function nombreEnLettresFR(n) {
 // Facture Proforma
 // ─────────────────────────────────────────────────────────────────────────────
 const generateFactureProforma = (commande) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 0, left: 50, right: 50 } });
   const c = commande;
   const W = 495; // zone utile (595 - 2*50)
   const L = 50;  // left margin
@@ -573,7 +573,7 @@ const generateFactureProforma = (commande) => {
 // État de Livraison par commande
 // ─────────────────────────────────────────────────────────────────────────────
 const generateEtatLivraison = (commande, livraisons) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 40, bottom: 0, left: 40, right: 40 }, bufferPages: true });
   const c = commande;
 
   // ── En-tête ───────────────────────────────────────────────────────────────
@@ -697,7 +697,7 @@ const generateEtatLivraison = (commande, livraisons) => {
 // État de Paiement par commande
 // ─────────────────────────────────────────────────────────────────────────────
 const generateEtatPaiement = (commande, result) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 40, bottom: 0, left: 40, right: 40 }, bufferPages: true });
   const c = commande;
   const paiements = result.paiements || [];
   const totalPaye = result.totalPaye || 0;
