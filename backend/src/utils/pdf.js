@@ -1,6 +1,13 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
+const fs = require('fs');
 const LOGO_PATH = path.join(__dirname, '../../assets/logo-amp.png');
+const hasLogo = fs.existsSync(LOGO_PATH);
+
+function drawLogo(doc, x, y, w, h) {
+  if (!hasLogo) return;
+  try { doc.image(LOGO_PATH, x, y, { fit: [w, h] }); } catch (_) {}
+}
 
 const BLEU       = '#1e40af';
 const BLEU_CLAIR = '#dbeafe';
@@ -81,7 +88,7 @@ const generateDevis = (commande, calculs) => {
   // Bandeau bleu supérieur
   doc.rect(0, 0, 595, 38).fillColor(BLEU_FONCE).fill();
   doc.rect(42, 4, 86, 30).fillColor(BLANC).fill();
-  doc.image(LOGO_PATH, 43, 5, { fit: [84, 28] });
+  drawLogo(doc, 43, 5, 84, 28);
   doc.fontSize(16).font('Helvetica-Bold').fillColor(BLANC).text('BUDGET FOURNITURE', 310, 10, { align: 'right', width: 240 });
 
   doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
@@ -267,7 +274,7 @@ const generateRapportBenefices = (data, dateDebut, dateFin) => {
   // ── EN-TÊTE ─────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
   doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
-  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
+  drawLogo(doc, 38, 5, 84, 30);
   doc.fontSize(13).font('Helvetica-Bold').fillColor(BLANC)
     .text('RAPPORT BÉNÉFICES PAR COMMANDE', 200, 12, { align: 'right', width: 355 });
 
@@ -460,7 +467,7 @@ const generateFactureProforma = (commande) => {
   // ── Logo AMP BÉTON ────────────────────────────────────────────────────────
   // Fond header blanc — pas de bandeau coloré pour imiter le style proforma
   doc.rect(L, 30, 120, 70).fillColor('#EEF2FF').fill();
-  doc.image(LOGO_PATH, L + 5, 35, { fit: [110, 60] });
+  drawLogo(doc, L + 5, 35, 110, 60);
 
   // Date en haut à droite
   doc.fontSize(10).font('Helvetica').fillColor(NOIR)
@@ -582,7 +589,7 @@ const generateEtatLivraison = (commande, livraisons) => {
   // ── En-tête ───────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
   doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
-  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
+  drawLogo(doc, 38, 5, 84, 30);
   doc.fontSize(12).font('Helvetica-Bold').fillColor(BLANC)
     .text('ÉTAT DE LIVRAISON', 200, 13, { align: 'right', width: 355 });
 
@@ -710,7 +717,7 @@ const generateEtatPaiement = (commande, result) => {
   // ── En-tête ───────────────────────────────────────────────────────────────
   doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
   doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
-  doc.image(LOGO_PATH, 38, 5, { fit: [84, 30] });
+  drawLogo(doc, 38, 5, 84, 30);
   doc.fontSize(12).font('Helvetica-Bold').fillColor(BLANC)
     .text('ÉTAT DE PAIEMENT', 200, 13, { align: 'right', width: 355 });
 
