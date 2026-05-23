@@ -9,9 +9,9 @@ function drawLogo(doc, x, y, w, h) {
   try { doc.image(LOGO_PATH, x, y, { fit: [w, h] }); } catch (_) {}
 }
 
-const BLEU       = '#1e40af';
-const BLEU_CLAIR = '#dbeafe';
-const BLEU_FONCE = '#1e3a8a';
+const BLEU       = '#c2410c';
+const BLEU_CLAIR = '#ffedd5';
+const BLEU_FONCE = '#92400e';
 const GRIS       = '#6b7280';
 const GRIS_LEGER = '#f9fafb';
 const GRIS_MOY   = '#e5e7eb';
@@ -138,7 +138,7 @@ const generateDevis = (commande, calculs) => {
   drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
     [`Béton prêt à l'emploi ${c.typeBeton || ''}`, 'm³', fmtD(c.volumeBeton),
       prixUnitaireDevis > 0 ? fmtF(prixUnitaireDevis) + '/m³' : '—', fmtF(c.montantCommande)],
-    '#eff6ff', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
+    '#fff7ed', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
   y += ROW_H;
 
   if (distance > 0 && k.fraisTransport > 0) {
@@ -254,7 +254,7 @@ const generateDevis = (commande, calculs) => {
   // ── PIED DE PAGE ───────────────────────────────────────────────────────
   const pageH = doc.page.height;
   doc.rect(0, pageH - 28, 595, 28).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(7.5).font('Helvetica').fillColor('#93c5fd')
+  doc.fontSize(7.5).font('Helvetica').fillColor('#fed7aa')
     .text(
       `AMP BÉTON — ERP v3.0  |  Généré le ${new Date().toLocaleString('fr-FR')}  |  contact@ampbeton.bf`,
       45, pageH - 18, { align: 'center', width: 505 }
@@ -344,7 +344,7 @@ const generateRapportBenefices = (data, dateDebut, dateFin) => {
       y += 16;
     }
 
-    const bg = idx % 2 === 0 ? BLANC : '#f8faff';
+    const bg = idx % 2 === 0 ? BLANC : '#fffbeb';
     doc.rect(40, y, 515, ROW_H).fillColor(bg).fill();
 
     const benefice = c.beneficeNetReel || 0;
@@ -401,7 +401,7 @@ const generateRapportBenefices = (data, dateDebut, dateFin) => {
   // ── PIED DE PAGE ─────────────────────────────────────────────────────────
   const pageH = doc.page.height;
   doc.rect(0, pageH - 25, 595, 25).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(7).font('Helvetica').fillColor('#93c5fd')
+  doc.fontSize(7).font('Helvetica').fillColor('#fed7aa')
     .text(
       `AMP BÉTON — ERP v3.0  |  Rapport confidentiel  |  Généré le ${new Date().toLocaleString('fr-FR')}`,
       40, pageH - 15, { align: 'center', width: 515 }
@@ -466,7 +466,7 @@ const generateFactureProforma = (commande) => {
 
   // ── Logo AMP BÉTON ────────────────────────────────────────────────────────
   // Fond header blanc — pas de bandeau coloré pour imiter le style proforma
-  doc.rect(L, 30, 120, 70).fillColor('#EEF2FF').fill();
+  doc.rect(L, 30, 120, 70).fillColor('#FFF7ED').fill();
   drawLogo(doc, L + 5, 35, 110, 60);
 
   // Date en haut à droite
@@ -568,8 +568,8 @@ const generateFactureProforma = (commande) => {
 
   // ── Pied de page ──────────────────────────────────────────────────────────
   const pH = doc.page.height;
-  doc.rect(0, pH - 68, 595, 68).fillColor('#1e3a8a').fill();
-  doc.fontSize(8).font('Helvetica').fillColor('#93c5fd')
+  doc.rect(0, pH - 68, 595, 68).fillColor('#92400e').fill();
+  doc.fontSize(8).font('Helvetica').fillColor('#fed7aa')
     .text('SARL au capital de 1.000.000 fCFA - 04 BP 536 Ouagadougou 04', 0, pH - 62, { align: 'center', width: 595 })
     .text('Secteur 33 - Parcelle HL - Section Q - Lot 24', 0, pH - 50, { align: 'center', width: 595 })
     .text('Tél. : +226 04 42 92 92 ; E-mail: r.bationo@amp-bf.com', 0, pH - 38, { align: 'center', width: 595 })
@@ -665,7 +665,7 @@ const generateEtatLivraison = (commande, livraisons) => {
 
   livraisons.forEach((l, idx) => {
     if (y + 16 > 760) { doc.addPage(); y = 40; }
-    const bg = idx % 2 === 0 ? BLANC : '#f8faff';
+    const bg = idx % 2 === 0 ? BLANC : '#fffbeb';
     doc.rect(40, y, 515, 16).fillColor(bg).fill();
     const vals = [
       l.heureArrivee ? new Date(l.heureArrivee).toLocaleDateString('fr-FR') : (l.heureDepart ? new Date(l.heureDepart).toLocaleDateString('fr-FR') : '—'),
@@ -697,7 +697,7 @@ const generateEtatLivraison = (commande, livraisons) => {
   // ── Pied ──────────────────────────────────────────────────────────────────
   const pH = doc.page.height;
   doc.rect(0, pH - 24, 595, 24).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(7).font('Helvetica').fillColor('#93c5fd')
+  doc.fontSize(7).font('Helvetica').fillColor('#fed7aa')
     .text(`AMP BÉTON — État de livraison confidentiel  |  Généré le ${new Date().toLocaleString('fr-FR')}`,
       40, pH - 14, { align: 'center', width: 515 });
 
@@ -786,7 +786,7 @@ const generateEtatPaiement = (commande, result) => {
 
   paiements.forEach((p, idx) => {
     if (y + 16 > 760) { doc.addPage(); y = 40; }
-    const bg = idx % 2 === 0 ? BLANC : '#f8faff';
+    const bg = idx % 2 === 0 ? BLANC : '#fffbeb';
     doc.rect(40, y, 515, 16).fillColor(bg).fill();
     const st = PSTATUT_CFG[p.statut] || { l: p.statut, c: NOIR };
     const saisiPar = p.user ? `${p.user.prenom} ${p.user.nom}`.substring(0, 15) : '—';
@@ -829,7 +829,7 @@ const generateEtatPaiement = (commande, result) => {
   // ── Pied ──────────────────────────────────────────────────────────────────
   const pH = doc.page.height;
   doc.rect(0, pH - 24, 595, 24).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(7).font('Helvetica').fillColor('#93c5fd')
+  doc.fontSize(7).font('Helvetica').fillColor('#fed7aa')
     .text(`AMP BÉTON — État de paiement confidentiel  |  Généré le ${new Date().toLocaleString('fr-FR')}`,
       40, pH - 14, { align: 'center', width: 515 });
 
