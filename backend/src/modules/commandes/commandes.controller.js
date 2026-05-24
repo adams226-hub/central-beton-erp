@@ -44,7 +44,7 @@ const genererPDF = asyncHandler(async (req, res) => {
   const v = commande.volumeBeton || 0;
 
   // Recalcul des coûts matières individuels depuis la formulation stockée
-  const coutCiment    = f ? Math.round(((commande.totalCiment || 0) / 1000) * f.prixCiment) : 0;
+  const coutCiment    = f ? Math.round((commande.totalCiment || 0) * f.prixCiment) : 0;
   const coutGravier515 = f ? Math.round((commande.totalGravier515 || 0) * f.prixGravier515) : 0;
   const coutGravier1525= f ? Math.round((commande.totalGravier1525 || 0) * f.prixGravier1525) : 0;
   const coutSable      = f ? Math.round((commande.totalSable || 0) * f.prixSable) : 0;
