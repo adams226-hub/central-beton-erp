@@ -84,7 +84,7 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
       <div>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Dosages par m³</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Field label="Ciment" unit="kg/m³" name="ciment" register={register} error={errors.ciment} type="number" step="0.1" />
+          <Field label="Ciment" unit="t/m³" name="ciment" register={register} error={errors.ciment} type="number" step="0.001" />
           <Field label="Sable" unit="m³/m³" name="sable" register={register} error={errors.sable} type="number" step="0.01" />
           <Field label="Gravier 5/15" unit="t/m³" name="gravier515" register={register} error={errors.gravier515} type="number" step="0.001" />
           <Field label="Gravier 15/25" unit="t/m³" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="0.001" />

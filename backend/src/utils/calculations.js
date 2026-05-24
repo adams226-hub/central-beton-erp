@@ -23,7 +23,7 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const f = formulation;
 
   // ─── Besoins matières totaux ───────────────────────────────────────────
-  const totalCiment = v * f.ciment;           // kg totaux
+  const totalCiment = v * f.ciment;           // tonnes totales
   const totalSable = v * f.sable;             // m³ totaux
   const totalGravier515 = v * f.gravier515;   // tonnes totales
   const totalGravier1525 = v * f.gravier1525; // tonnes totales
@@ -32,7 +32,7 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const totalPowerflow = v * f.powerflow;     // litres totaux
 
   // ─── Coûts matières ────────────────────────────────────────────────────
-  const coutCiment = (totalCiment / 1000) * f.prixCiment;
+  const coutCiment = totalCiment * f.prixCiment;
   const coutSable = totalSable * f.prixSable;
   const coutGravier515 = totalGravier515 * f.prixGravier515;
   const coutGravier1525 = totalGravier1525 * f.prixGravier1525;

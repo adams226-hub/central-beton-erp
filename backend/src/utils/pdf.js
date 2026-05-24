@@ -159,7 +159,7 @@ const generateDevis = (commande, calculs) => {
   y += 16;
 
   const matieres = [
-    ['Ciment CPA 42.5', 'kg',  fmt(k.totalCiment),    fmtF(k.coutCiment)],
+    ['Ciment CPA 42.5', 't',   fmtD(k.totalCiment),   fmtF(k.coutCiment)],
     ['Gravier 5/15',    't',   fmtD(k.totalGravier515), fmtF(k.coutGravier515)],
     ['Gravier 15/25',   't',   fmtD(k.totalGravier1525),fmtF(k.coutGravier1525)],
     ['Sable naturel',   'm³',  fmtD(k.totalSable),     fmtF(k.coutSable)],

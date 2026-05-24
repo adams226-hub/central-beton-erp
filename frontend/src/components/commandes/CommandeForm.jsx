@@ -161,7 +161,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   };
 
   const calcFields = calculs ? [
-    { key: 'totalCiment', label: 'Ciment total', unit: 'kg', section: 'matieres' },
+    { key: 'totalCiment', label: 'Ciment total', unit: 't', section: 'matieres' },
     { key: 'totalSable', label: 'Sable', unit: 'm³', section: 'matieres' },
     { key: 'totalGravier515', label: 'Gravier 5/15', unit: 't', section: 'matieres' },
     { key: 'totalGravier1525', label: 'Gravier 15/25', unit: 't', section: 'matieres' },

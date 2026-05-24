@@ -130,7 +130,7 @@ const calculer = (data) => {
 };
 
 const calculerCoutUnitaire = (f) => {
-  const coutCiment = (f.ciment / 1000) * f.prixCiment;
+  const coutCiment = f.ciment * f.prixCiment;
   const coutSable = f.sable * f.prixSable;
   const coutGravier515 = f.gravier515 * f.prixGravier515;
   const coutGravier1525 = f.gravier1525 * f.prixGravier1525;

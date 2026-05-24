@@ -63,7 +63,7 @@ const FormulationCard = ({ formulation, onEdit, onDelete, canEdit, canDelete }) 
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-[10px] text-gray-500 uppercase">Ciment</p>
-            <p className="font-semibold text-gray-700 text-sm">{formulation.ciment} kg/m³</p>
+            <p className="font-semibold text-gray-700 text-sm">{formulation.ciment} t/m³</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-[10px] text-gray-500 uppercase">Powerflow</p>
@@ -98,7 +98,7 @@ const FormulationCard = ({ formulation, onEdit, onDelete, canEdit, canDelete }) 
           >
             <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50">
               {[
-                { label: 'Ciment', value: `${formulation.ciment} kg/m³`, prix: `${formatMontant(formulation.prixCiment)}/t` },
+                { label: 'Ciment', value: `${formulation.ciment} t/m³`, prix: `${formatMontant(formulation.prixCiment)}/t` },
                 { label: 'Sable', value: `${formulation.sable} m³/m³`, prix: `${formatMontant(formulation.prixSable)}/m³` },
                 { label: 'Gravier 5/15', value: `${formulation.gravier515} t/m³`, prix: `${formatMontant(formulation.prixGravier515)}/t` },
                 { label: 'Gravier 15/25', value: `${formulation.gravier1525} t/m³`, prix: `${formatMontant(formulation.prixGravier1525)}/t` },

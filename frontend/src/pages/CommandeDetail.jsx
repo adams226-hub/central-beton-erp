@@ -171,7 +171,7 @@ const CommandeDetail = () => {
           </h3>
           <div className="space-y-2">
             {[
-              { label: 'Ciment total', value: `${(commande.totalCiment || 0).toLocaleString('fr-FR')} kg`, sub: `(${Math.round((commande.totalCiment || 0) / 1000 * 100) / 100} t)` },
+              { label: 'Ciment total', value: `${commande.totalCiment || 0} t` },
               { label: 'Gravier 5/15', value: `${commande.totalGravier515 || 0} t` },
               { label: 'Gravier 15/25', value: `${commande.totalGravier1525 || 0} t` },
               { label: 'Sable naturel', value: `${commande.totalSable || 0} m³` },
