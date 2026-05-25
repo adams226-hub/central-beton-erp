@@ -2,6 +2,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const service = require('./commandes.service');
 const { generateDevis, generateFactureProforma } = require('../../utils/pdf');
 const prisma = require('../../config/prisma');
+const parametresService = require('../parametres/parametres.service');
 
 const listerCommandes = asyncHandler(async (req, res) => {
   const result = await service.listerCommandes(req.user, req.query);
@@ -50,22 +51,16 @@ const genererPDF = asyncHandler(async (req, res) => {
   const coutSable      = f ? Math.round((commande.totalSable || 0) * f.prixSable) : 0;
   const coutPowerflow  = f ? Math.round((commande.totalPowerflow || 0) * (f.prixPowerflow || 1750)) : 0;
 
-  const fraisRestauration = Math.ceil(v / 200) * 12 * 1500;
+  const params = await parametresService.get();
+  const fraisRestauration = Math.ceil(v / (params.volumeRefMensuel ?? 200)) * (params.nbRepasRef ?? 12) * (params.fraisRestaurationPlat ?? 1500);
   const fraisTransport    = commande.fraisTransport || 0;
   const distance          = commande.distanceLivraison || 0;
 
-  // Charges d'exploitation reconstituées
-  const fraisLoyer        = commande.chargesExploitation
-    ? Math.round(commande.chargesExploitation * 0.50)
-    : Math.round((500_000 / 200) * v);
-  const fraisAutresCharges= commande.chargesExploitation
-    ? Math.round(commande.chargesExploitation * 0.15)
-    : Math.round((150_000 / 200) * v);
-  const fraisImpots       = commande.chargesExploitation
-    ? commande.chargesExploitation - fraisLoyer - fraisAutresCharges
-    : Math.round((commande.montantCommande || 0) * 0.05);
-  const chargesExploitation = commande.chargesExploitation ||
-    fraisLoyer + fraisAutresCharges + fraisImpots;
+  // Charges d'exploitation reconstituées depuis les paramètres ERP
+  const fraisLoyer        = Math.round((params.loyerMensuel / params.volumeRefMensuel) * v);
+  const fraisAutresCharges = Math.round((params.fraisGenerauxMensuels / params.volumeRefMensuel) * v);
+  const fraisImpots       = Math.round((commande.montantCommande || 0) * params.impotsTaux);
+  const chargesExploitation = fraisLoyer + fraisAutresCharges + fraisImpots;
 
   const calculs = {
     totalCiment:     commande.totalCiment,

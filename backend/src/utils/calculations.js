@@ -1,26 +1,28 @@
 /**
  * Moteur de calcul automatique pour commandes béton
  * Calcule tous les besoins matières, coûts, marges et bénéfice réel
+ * Les constantes financières sont injectées via le paramètre `params`
+ * (récupérées depuis la table parametres_erp en base)
  */
 
-// Charges d'exploitation mensuelles (loyer, taxes, frais généraux)
-// Proratisées au m³ sur base de 200 m³/mois de production de référence
-const CHARGES_FIXES = {
-  loyerMensuel: 500_000,      // FCFA/mois — location de la centrale
-  autresMensuel: 150_000,     // FCFA/mois — eau, électricité, bureau
-  impotsTaux: 0.05,           // 5% du CA — impôts et taxes
-  volumeRefMensuel: 200,      // m³/mois de référence pour proratisation
-};
-
-// Taux de consommation gasoil toupie pour la livraison
+// Taux de consommation gasoil toupie pour la livraison (fixe technique)
 const GASOIL_TOUPIE_L_PER_100KM = 35;   // L/100km
-const PRIX_GASOIL = 675;                  // FCFA/L
-const FRAIS_CHAUFFEUR_PER_KM = 500;       // FCFA/km (chauffeur + frais de route)
 
-const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0) => {
+const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0, params = {}) => {
   const v = parseFloat(volume);
   const d = parseFloat(distance) || 0;
   const f = formulation;
+
+  // ─── Constantes financières (depuis DB ou valeurs par défaut) ──────────
+  const LOYER          = params.loyerMensuel          ?? 500_000;
+  const FRAIS_GEN      = params.fraisGenerauxMensuels ?? 150_000;
+  const VOL_REF        = params.volumeRefMensuel       ?? 200;
+  const PRIX_GASOIL_V  = params.prixGasoil             ?? 675;
+  const CHARGE_PERS    = params.chargePersonnelM3      ?? 245;
+  const FRAIS_REPAS    = params.fraisRestaurationPlat  ?? 1_500;
+  const NB_REPAS       = params.nbRepasRef             ?? 12;
+  const IMPOTS_TAUX    = params.impotsTaux             ?? 0.05;
+  const FRAIS_CHAUFFEUR = params.fraisChauffeurKm      ?? 500;
 
   // ─── Besoins matières totaux ───────────────────────────────────────────
   const totalCiment = v * f.ciment;           // tonnes totales
@@ -42,19 +44,19 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const coutMateriaux = coutCiment + coutSable + coutGravier515 +
     coutGravier1525 + coutHydrofuge + coutPowerflow;
 
-  // ─── Gasoil production (proportionnel au volume / 200 m³ de référence) ──
-  const ratio = v / 200;
+  // ─── Gasoil production (proportionnel au volume / VOL_REF de référence) ─
+  const ratio = v / VOL_REF;
   const gasoilGroupe = f.gasoilGroupe * ratio;
   const gasoilToupie = f.gasoilToupie * ratio;
   const gasoilChargeur = f.gasoilChargeur * ratio;
   const gasoilPompe = f.gasoilPompe * ratio;
   const totalGasoil = gasoilGroupe + gasoilToupie + gasoilChargeur + gasoilPompe;
-  const coutGasoil = totalGasoil * PRIX_GASOIL;
+  const coutGasoil = totalGasoil * PRIX_GASOIL_V;
 
   // ─── Transport (aller-retour selon distance de livraison) ───────────────
   // Carburant aller-retour + frais chauffeur/route
   const fraisTransport = d > 0
-    ? Math.round(d * 2 * (GASOIL_TOUPIE_L_PER_100KM / 100) * PRIX_GASOIL + d * FRAIS_CHAUFFEUR_PER_KM)
+    ? Math.round(d * 2 * (GASOIL_TOUPIE_L_PER_100KM / 100) * PRIX_GASOIL_V + d * FRAIS_CHAUFFEUR)
     : 0;
 
   // ─── Amortissements matériels ──────────────────────────────────────────
@@ -66,10 +68,10 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const coutAmortissement = amortToupie + amortPompe + amortCentrale + amortGroupe + amortChargeuse;
 
   // ─── Personnel ─────────────────────────────────────────────────────────
-  const coutPersonnel = v * 245;
+  const coutPersonnel = v * CHARGE_PERS;
 
   // ─── Restauration & Divers ─────────────────────────────────────────────
-  const fraisRestauration = Math.ceil(v / 200) * 12 * 1500;
+  const fraisRestauration = Math.ceil(v / VOL_REF) * NB_REPAS * FRAIS_REPAS;
 
   // ─── Coût total de production (inclut transport) ───────────────────────
   const coutTotal = coutMateriaux + coutGasoil + coutAmortissement +
@@ -82,9 +84,9 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
 
   // ─── Charges d'exploitation (loyer, impôts, frais généraux) ────────────
   // Proratisées sur le volume produit
-  const fraisLoyer = (CHARGES_FIXES.loyerMensuel / CHARGES_FIXES.volumeRefMensuel) * v;
-  const fraisAutresCharges = (CHARGES_FIXES.autresMensuel / CHARGES_FIXES.volumeRefMensuel) * v;
-  const fraisImpots = montantCommande > 0 ? montantCommande * CHARGES_FIXES.impotsTaux : 0;
+  const fraisLoyer = (LOYER / VOL_REF) * v;
+  const fraisAutresCharges = (FRAIS_GEN / VOL_REF) * v;
+  const fraisImpots = montantCommande > 0 ? montantCommande * IMPOTS_TAUX : 0;
   const chargesExploitation = fraisLoyer + fraisAutresCharges + fraisImpots;
 
   // ─── Bénéfice réel net ─────────────────────────────────────────────────

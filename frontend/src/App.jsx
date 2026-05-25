@@ -20,6 +20,7 @@ const DashboardPDG = lazy(() => import('./pages/DashboardPDG'));
 const Analytiques = lazy(() => import('./pages/Analytiques'));
 const Previsions = lazy(() => import('./pages/Previsions'));
 const Alertes = lazy(() => import('./pages/Alertes'));
+const Parametres = lazy(() => import('./pages/Parametres'));
 
 const PrivateRoute = ({ children, permission }) => {
   const { isAuthenticated, loading, hasPermission } = useAuth();
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="analytiques" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Analytiques /></Suspense></PrivateRoute>} />
           <Route path="previsions" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Previsions /></Suspense></PrivateRoute>} />
           <Route path="alertes" element={<Suspense fallback={<PageLoader />}><Alertes /></Suspense>} />
+          <Route path="parametres" element={<Suspense fallback={<PageLoader />}><Parametres /></Suspense>} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

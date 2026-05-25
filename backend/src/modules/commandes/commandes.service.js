@@ -3,6 +3,7 @@ const { emitToUser, emitToRole } = require('../../config/socket');
 const { envoyerNotifValidation, envoyerEmail } = require('../../utils/email');
 const logger = require('../../config/logger');
 const prisma = require('../../config/prisma');
+const parametresService = require('../parametres/parametres.service');
 
 // Ordre du workflow de validation (5 étapes)
 // Secrétaire → Chef de site → Assistant Comptable → Chef Comptable → VALIDÉE (→ PDG notifié)
@@ -72,7 +73,8 @@ const creerCommande = async (data, userId) => {
 
   if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
 
-  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0);
+  const params = await parametresService.get();
+  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params);
   const reference = genererReferenceCommande();
 
   // Exclure les champs non-Prisma du spread
@@ -124,11 +126,13 @@ const modifierCommande = async (id, data, userId) => {
       where: { id: data.formulationId || commande.formulationId },
     });
     if (formulation) {
+      const params = await parametresService.get();
       const { fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges, coutCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow, ...rest } = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
         data.montantCommande || commande.montantCommande || 0,
-        data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0)
+        data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0),
+        params
       );
       calculsDB = rest;
     }

@@ -123,6 +123,12 @@ export const alertesAPI = {
   resoudreTout: (niveau) => api.patch('/alertes/resoudre-tout', {}, { params: { niveau } }),
 };
 
+// ─── Paramètres ERP ───────────────────────────────────
+export const parametresAPI = {
+  get: () => api.get('/parametres'),
+  update: (data) => api.put('/parametres', data),
+};
+
 // ─── Rapports ─────────────────────────────────────────
 export const rapportsAPI = {
   tableauDeBordPDG: (params) => api.get('/rapports/tableau-de-bord-pdg', { params }),

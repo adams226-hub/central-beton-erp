@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardList, FlaskConical, Bell, Users,
   ChevronLeft, ChevronRight, Building2,
   Factory, Package, Wrench, Truck, CreditCard, BarChart3,
-  Brain, TrendingUp, AlertTriangle, Activity,
+  Brain, TrendingUp, AlertTriangle, Activity, Settings,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -52,6 +52,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/notifications', label: 'Notifications', icon: Bell, permission: null, badge: true },
       { path: '/utilisateurs', label: 'Utilisateurs', icon: Users, permission: 'user:read' },
+      { path: '/parametres', label: 'Paramètres', icon: Settings, permission: null, roles: ['PDG', 'CHEF_COMPTABLE'] },
     ],
   },
 ];
@@ -101,7 +102,11 @@ const Sidebar = () => {
       {/* Navigation avec groupes */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => !item.permission || hasPermission(item.permission));
+          const visibleItems = group.items.filter((item) => {
+            if (item.permission && !hasPermission(item.permission)) return false;
+            if (item.roles && !item.roles.includes(user?.role)) return false;
+            return true;
+          });
           if (!visibleItems.length) return null;
           return (
             <div key={group.label || 'root'} className="mb-3">

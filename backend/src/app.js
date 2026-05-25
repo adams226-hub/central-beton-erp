@@ -72,6 +72,9 @@ app.use('/api/rapports', rapportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/alertes', alertesRoutes);
 
+// ─── Paramètres ERP ──────────────────────────────────
+app.use('/api/parametres', require('./modules/parametres/parametres.routes'));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'AMP BETON ERP v2.0 — Opérationnel', timestamp: new Date().toISOString() });
