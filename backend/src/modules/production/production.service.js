@@ -53,6 +53,37 @@ const demarrer = async (data, operateurId) => {
   }
   if (!commande.formulation) throw Object.assign(new Error('Formulation manquante sur la commande'), { statusCode: 400 });
 
+  // Vérification des stocks avant tout démarrage
+  const f = commande.formulation;
+  const v = commande.volumeBeton;
+  const besoinsVerif = [
+    { type: 'CIMENT',       quantite: f.ciment * v },
+    { type: 'SABLE',        quantite: f.sable * v },
+    { type: 'GRAVIER_515',  quantite: f.gravier515 * v * 1000 },
+    { type: 'GRAVIER_1525', quantite: f.gravier1525 * v * 1000 },
+    { type: 'HYDROFUGE',    quantite: f.hydrofuge * v },
+    { type: 'POWERFLOW',    quantite: f.powerflow * v },
+    { type: 'GASOIL',       quantite: (f.gasoilToupie + f.gasoilChargeur + f.gasoilPompe + f.gasoilGroupe) * (v / 200) },
+  ].filter((m) => m.quantite > 0);
+
+  const stocksDisponibles = await prisma.stockMatiere.findMany({
+    where: { materiau: { in: besoinsVerif.map((m) => m.type) } },
+  });
+  const stockMap = Object.fromEntries(stocksDisponibles.map((s) => [s.materiau, s]));
+
+  const manquants = besoinsVerif.filter((m) => {
+    const s = stockMap[m.type];
+    return !s || s.quantite < m.quantite;
+  });
+
+  if (manquants.length > 0) {
+    const details = manquants.map((m) => {
+      const s = stockMap[m.type];
+      return `${s?.designation || m.type} : besoin ${m.quantite.toFixed(2)} ${s?.unite || ''}, disponible ${(s?.quantite ?? 0).toFixed(2)} ${s?.unite || ''}`;
+    }).join(' | ');
+    throw Object.assign(new Error(`Stock insuffisant. ${details}`), { statusCode: 400 });
+  }
+
   const reference = genRefProduction();
 
   // Transaction batch atomique : créer production + mettre à jour statut commande

@@ -18,7 +18,7 @@ const Login = () => {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
   });
 
@@ -28,7 +28,11 @@ const Login = () => {
       const user = await login(data.email, data.password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Email ou mot de passe incorrect');
+      if (!err.response) {
+        setError('Impossible de contacter le serveur. Vérifiez que le backend est démarré.');
+      } else {
+        setError(err.response.data?.message || 'Email ou mot de passe incorrect');
+      }
     }
   };
 
@@ -137,9 +141,8 @@ const Login = () => {
                     key={role}
                     type="button"
                     onClick={() => {
-                      document.querySelector('input[type=email]').value = email;
-                      const pwdInput = document.querySelector('input[type=password], input[name=password]');
-                      if (pwdInput) pwdInput.value = pwd;
+                      setValue('email', email, { shouldValidate: true });
+                      setValue('password', pwd, { shouldValidate: true });
                     }}
                     className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg p-2 transition-colors"
                   >

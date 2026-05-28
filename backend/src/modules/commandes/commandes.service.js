@@ -60,6 +60,36 @@ const getCommande = async (id) => {
         include: { valideur: { select: { nom: true, prenom: true, role: true } } },
         orderBy: { createdAt: 'asc' },
       },
+      productions: {
+        select: {
+          id: true, reference: true, statut: true,
+          volumePlanifie: true, volumeProduit: true,
+          dateDebut: true, dateFin: true, dureeHeures: true,
+          rendement: true, observations: true,
+          operateur: { select: { nom: true, prenom: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+      livraisons: {
+        select: {
+          id: true, reference: true, statut: true,
+          volumePlanifie: true, volumeReel: true,
+          heureDepart: true, heureArrivee: true,
+          chauffeur: true,
+          toupie: { select: { nom: true, code: true } },
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      paiements: {
+        select: {
+          id: true, reference: true, statut: true,
+          montant: true, modePaiement: true,
+          dateEcheance: true, datePaiement: true,
+          notes: true, createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   });
   if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
