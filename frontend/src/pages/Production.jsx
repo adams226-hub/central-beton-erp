@@ -302,10 +302,10 @@ const Production = () => {
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-400 mb-1">
                   <span>Volume produit : {prod.volumeProduit || 0} / {prod.volumePlanifie} m³</span>
-                  <span>{Math.round(((prod.volumeProduit || 0) / prod.volumePlanifie) * 100)}%</span>
+                  <span>{prod.volumePlanifie > 0 ? Math.round(((prod.volumeProduit || 0) / prod.volumePlanifie) * 100) : 0}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(100, ((prod.volumeProduit || 0) / prod.volumePlanifie) * 100)}%` }} />
+                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${prod.volumePlanifie > 0 ? Math.min(100, ((prod.volumeProduit || 0) / prod.volumePlanifie) * 100) : 0}%` }} />
                 </div>
               </div>
             )}

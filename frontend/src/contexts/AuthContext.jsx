@@ -26,6 +26,16 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
+  // Écoute l'événement envoyé par l'intercepteur axios quand le refresh échoue
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, []);
+
   const login = async (email, password) => {
     const { data } = await authAPI.login({ email, password });
     localStorage.setItem('accessToken', data.data.accessToken);

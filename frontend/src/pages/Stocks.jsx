@@ -176,7 +176,7 @@ const Stocks = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {stocks?.map((stock, i) => {
           const cfg = STATUT_COLORS[stock.statut] || STATUT_COLORS.OK;
-          const pctAlerte = Math.min(100, (stock.quantite / (stock.seuilAlerte * 3)) * 100);
+          const pctAlerte = stock.seuilAlerte > 0 ? Math.min(100, (stock.quantite / (stock.seuilAlerte * 3)) * 100) : 100;
 
           return (
             <motion.div

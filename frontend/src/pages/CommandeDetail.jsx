@@ -390,7 +390,7 @@ const CommandeDetail = () => {
                         {prod.operateur && <p>Opérateur : <span className="font-medium text-gray-700">{prod.operateur.prenom} {prod.operateur.nom}</span></p>}
                         {prod.dateDebut && <p>Début : <span className="font-medium text-gray-700">{formatDateTime(prod.dateDebut)}</span></p>}
                         {prod.dateFin  && <p>Fin : <span className="font-medium text-gray-700">{formatDateTime(prod.dateFin)}</span></p>}
-                        {prod.dureeHeures && <p>Durée : <span className="font-medium text-gray-700">{prod.dureeHeures.toFixed(1)} h</span></p>}
+                        {prod.dureeHeures != null && prod.dureeHeures !== 0 && <p>Durée : <span className="font-medium text-gray-700">{parseFloat(prod.dureeHeures).toFixed(1)} h</span></p>}
                       </div>
                       <div className="mt-3">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -515,7 +515,7 @@ const CommandeDetail = () => {
         <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
           <Clock size={14} /> Historique des validations
         </h3>
-        {commande.validations?.length === 0 ? (
+        {!commande.validations?.length ? (
           <p className="text-gray-400 text-sm">Aucune validation encore</p>
         ) : (
           <div className="space-y-3">

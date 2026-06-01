@@ -30,6 +30,7 @@ api.interceptors.response.use(
         if (!refreshToken) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          window.dispatchEvent(new Event('auth:logout'));
           return Promise.reject(error);
         }
         const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
@@ -40,6 +41,7 @@ api.interceptors.response.use(
       } catch {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        window.dispatchEvent(new Event('auth:logout'));
         return Promise.reject(error);
       }
     }

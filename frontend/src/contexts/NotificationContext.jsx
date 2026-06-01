@@ -33,7 +33,7 @@ export const NotificationProvider = ({ children }) => {
       transports: ['websocket', 'polling'],
     });
 
-    s.on('connect', () => console.log('Socket connecté'));
+    s.on('connect', () => {});
     s.on('notification:nouvelle', (notif) => {
       setNotifications((prev) => [notif, ...prev]);
       setNonLues((c) => c + 1);
