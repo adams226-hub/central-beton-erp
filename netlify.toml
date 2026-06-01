@@ -1,14 +1,12 @@
 [build]
-  base    = "frontend"
-  command = "npm run build"
-  publish = "dist"
+  command = "cd frontend && npm install && npm run build"
+  publish = "frontend/dist"
 
 [build.environment]
-  NODE_VERSION          = "20"
-  VITE_API_URL          = "https://central-beton-erp.onrender.com/api"
-  VITE_SOCKET_URL       = "https://central-beton-erp.onrender.com"
+  NODE_VERSION    = "20"
+  VITE_API_URL    = "https://central-beton-erp.onrender.com/api"
+  VITE_SOCKET_URL = "https://central-beton-erp.onrender.com"
 
-# React Router — toutes les routes renvoient vers index.html
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
