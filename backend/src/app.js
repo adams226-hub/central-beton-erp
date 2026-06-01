@@ -39,11 +39,13 @@ app.set('io', io);
 // ─── Middlewares globaux ──────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: false }));
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL].filter(Boolean)
+  ? [process.env.FRONTEND_URL, 'https://centralabeton.netlify.app'].filter(Boolean)
   : ['http://localhost:5173', 'http://localhost:3000'];
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (origin.endsWith('.netlify.app') || origin.endsWith('.onrender.com')) return cb(null, true);
     cb(new Error(`CORS bloqué : ${origin}`));
   },
   credentials: true,
