@@ -27,7 +27,10 @@ const PaiementForm = ({ onSuccess, onClose }) => {
     queryFn: () => commandesAPI.lister({ limit: 200 }),
     select: (r) => {
       const list = r.data?.data?.commandes ?? [];
-      return list.filter((c) => ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut));
+      return list.filter((c) =>
+        ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut) &&
+        (c.montantRestant === null || c.montantRestant === undefined || c.montantRestant > 0)
+      );
     },
     staleTime: 0,
     refetchOnMount: 'always',

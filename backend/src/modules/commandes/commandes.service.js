@@ -39,6 +39,7 @@ const listerCommandes = async (user, filters = {}) => {
         createdBy: { select: { nom: true, prenom: true, role: true } },
         formulation: { select: { nom: true, typeBeton: true } },
         validations: { include: { valideur: { select: { nom: true, prenom: true, role: true } } } },
+        productions: { select: { volumeProduit: true, statut: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: filters.limit ? parseInt(filters.limit) : 50,

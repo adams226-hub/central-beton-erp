@@ -41,7 +41,20 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
   const { data: commandes, isLoading: cmdLoading } = useQuery({
     queryKey: ['commandes-validees'],
     queryFn: () => commandesAPI.lister({ limit: 200 }),
-    select: (r) => (r.data?.data?.commandes ?? []).filter((c) => ['VALIDEE', 'EN_PRODUCTION'].includes(c.statut)),
+    select: (r) => (r.data?.data?.commandes ?? [])
+      .filter((c) => {
+        if (!['VALIDEE', 'EN_PRODUCTION'].includes(c.statut)) return false;
+        const dejaProduire = (c.productions || [])
+          .filter(p => p.statut === 'TERMINE')
+          .reduce((s, p) => s + (p.volumeProduit || 0), 0);
+        return dejaProduire < c.volumeBeton;
+      })
+      .map((c) => {
+        const dejaProduire = (c.productions || [])
+          .filter(p => p.statut === 'TERMINE')
+          .reduce((s, p) => s + (p.volumeProduit || 0), 0);
+        return { ...c, volumeRestant: Math.max(0, c.volumeBeton - dejaProduire), volumeDejaProduire: dejaProduire };
+      }),
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -75,7 +88,7 @@ const DemarrerProductionModal = ({ onSuccess, onClose }) => {
               {!cmdLoading && commandes?.length === 0 && <option disabled>Aucune commande validée</option>}
               {commandes?.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.reference} — {c.nomClient} — {c.volumeBeton} m³ {c.typeBeton}
+                  {c.reference} — {c.nomClient} — {c.volumeRestant} m³ restants / {c.volumeBeton} m³ {c.typeBeton}
                 </option>
               ))}
             </select>
