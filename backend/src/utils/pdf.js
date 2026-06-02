@@ -148,109 +148,120 @@ const generateDevis = (commande, calculs) => {
     y += ROW_H;
   }
 
-  // ── BESOINS EN MATIÈRES PREMIÈRES ─────────────────────────────────────
+  // ── BUDGET DES DÉPENSES ────────────────────────────────────────────────
   y += 6;
-  y = sectionTitle(doc, y, 'BESOINS EN MATIÈRES PREMIÈRES');
+  y = sectionTitle(doc, y, 'BUDGET DES DÉPENSES');
   y += 2;
 
-  const colM = [195, 50, 90, 170];
-  drawRow(doc, y, 16, colM, ['Matière', 'Unité', 'Quantité', 'Coût estimé'],
-    BLEU, [BLANC, BLANC, BLANC, BLANC], [true, true, true, true]);
+  // Colonnes : Item | Désignation | Unité | Fcfa/u htva | Quantité | Montant HTVA
+  const CB = [22, 178, 38, 78, 62, 127];
+  const CB_ALIGNS = ['center','left','center','right','right','right'];
+
+  // En-tête colonnes
+  drawRow(doc, y, 16, CB,
+    ['Item', 'Désignation', 'Unité', 'Fcfa/u htva', 'Quantité', 'Montant HTVA'],
+    BLEU, [BLANC,BLANC,BLANC,BLANC,BLANC,BLANC], [true,true,true,true,true,true], CB_ALIGNS);
   y += 16;
 
-  const matieres = [
-    ['CIMENT',                    't',  fmtD(k.totalCiment),        fmtF(k.coutCiment)],
-    ['Gravier 5/15',              't',  fmtD(k.totalGravier515),    fmtF(k.coutGravier515)],
-    ['Gravier 15/25',             't',  fmtD(k.totalGravier1525),   fmtF(k.coutGravier1525)],
-    ['Sable Naturel (Centrale)',  'm³', fmtD(k.totalSable),         fmtF(k.coutSable)],
-    ['Powerflow 6425',            'L',  fmt(k.totalPowerflow),      fmtF(k.coutPowerflow)],
-    ['Gasoil groupe électrogène', 'L',  fmt(k.totalGasoilGroupe),   fmtF(k.coutGasoilGroupe)],
-    ['Gasoil pour toupies',       'L',  fmt(k.totalGasoilToupie),   fmtF(k.coutGasoilToupie)],
-    ['Gasoil pour chargeur',      'L',  fmt(k.totalGasoilChargeur), fmtF(k.coutGasoilChargeur)],
-    ['Gasoil pour pompe à béton', 'L',  fmt(k.totalGasoilPompe),    fmtF(k.coutGasoilPompe)],
-    ['Amort. Toupie',             'H',  fmtD(k.hToupie),            fmtF(k.amortToupie)],
-    ['Amort. Pompe à béton',      'H',  fmtD(k.hPompe),             fmtF(k.amortPompe)],
-    ['Amort. Centrale à béton',   'H',  fmtD(k.hCentrale),          fmtF(k.amortCentrale)],
-    ['Amort. Groupe électrogène', 'H',  fmtD(k.hGroupe),            fmtF(k.amortGroupe)],
-    ['Amort. Chargeuse',          'H',  fmtD(k.hChargeuse),         fmtF(k.amortChargeuse)],
-    ['Frais restauration & divers','plat', fmt(Math.ceil((commande.volumeBeton||0)/200)*12), fmtF(k.fraisRestauration)],
-  ].filter(r => parseFloat(r[2]) > 0);
-  matieres.forEach((row, i) => {
-    drawRow(doc, y, ROW_H, colM, row, i % 2 === 0 ? BLANC : GRIS_LEGER, [NOIR, NOIR, NOIR, NOIR], [false, false, false, false]);
-    y += ROW_H;
-  });
+  // Sous-titre Fourniture
+  doc.rect(45, y, 505, 14).fillColor(GRIS_MOY).fill();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
+    .text('Fourniture — Matériaux et consommables', 50, y + 3, { width: 495, lineBreak: false });
+  y += 14;
 
-  // ── RÉCAPITULATIF FINANCIER — COÛTS DE PRODUCTION ─────────────────────
-  y += 6;
-  y = sectionTitle(doc, y, 'RÉCAPITULATIF FINANCIER — COÛTS DE PRODUCTION');
-  y += 2;
+  const BG0 = BLANC;
+  const BG1 = GRIS_LEGER;
+  const RH = 16;
+  let item = 1;
 
-  y = ligneFinanciere(doc, y, 'Coût matières premières', fmtF(k.coutMateriaux), BLANC);
-  y = ligneFinanciere(doc, y, 'Coût gasoil production', fmtF(k.coutGasoil), GRIS_LEGER);
-  y = ligneFinanciere(doc, y, 'Amortissement matériels', fmtF(k.coutAmortissement), BLANC);
-  y = ligneFinanciere(doc, y, 'Charges de personnel (245 FCFA/m³)', fmtF(k.coutPersonnel), GRIS_LEGER);
-  y = ligneFinanciere(doc, y, 'Restauration & divers chantier', fmtF(k.fraisRestauration || 0), BLANC);
-  if (k.fraisTransport > 0) {
-    y = ligneFinanciere(doc, y, `Frais de transport livraison (${fmtD(distance)} km)`, fmtF(k.fraisTransport), ORANGE_CLAIR, ORANGE);
+  const bRow = (no, des, uni, pu, qty, mt, bg) => {
+    drawRow(doc, y, RH, CB,
+      [no ? String(no) : '', des, uni, pu, qty, mt],
+      bg, [NOIR,NOIR,NOIR,NOIR,NOIR,NOIR], [false,false,false,false,false,false], CB_ALIGNS);
+    y += RH;
+  };
+
+  bRow(item++, 'Ciment',                     't',    fmt(k.prixCiment),     fmtD(k.totalCiment),    fmtF(k.coutCiment),     BG0);
+  bRow(item++, 'Transport ciment',            't',    '',                    fmtD(k.totalCiment),    '0',                    BG1);
+  bRow(item++, 'Gravier 5/15',               't',    fmt(k.prixGravier515), fmtD(k.totalGravier515), fmtF(k.coutGravier515), BG0);
+  bRow(item++, 'Gravier 15/25',              't',    fmt(k.prixGravier1525),fmtD(k.totalGravier1525),fmtF(k.coutGravier1525),BG1);
+  bRow(item++, 'Sable Naturel (Centrale à béton)', 'm³', fmt(k.prixSable), fmtD(k.totalSable),      fmtF(k.coutSable),      BG0);
+  bRow(item++, 'Powerflow 6425',             'litre', fmt(k.prixPowerflow), fmt(k.totalPowerflow),   fmtF(k.coutPowerflow),  BG1);
+  bRow(item++, 'Hydrofuge',                  'litre', fmt(k.prixHydrofuge), fmt(k.totalHydrofuge),   fmtF(k.coutHydrofuge),  BG0);
+  bRow(item++, 'Gasoil groupe électrogène',  'litre', '675',                fmt(k.gasoilGroupeL),    fmtF(k.gasoilGroupeL * 675),  BG1);
+  bRow(item++, 'Gasoil pour toupies',        'litre', '675',                fmt(k.gasoilToupieL),    fmtF(k.gasoilToupieL * 675),  BG0);
+  bRow(item++, 'Gasoil pour chargeur',       'litre', '675',                fmt(k.gasoilChargeurL),  fmtF(k.gasoilChargeurL * 675),BG1);
+  bRow(item++, 'Gasoil pour pompe à béton',  'litre', '675',                fmt(k.gasoilPompeL),     fmtF(k.gasoilPompeL * 675),   BG0);
+  bRow(item++, 'Amortissement (TOUPIE)',     'H',     fmt(k.amortToupieRate),   fmtD(k.amortToupieH),    fmtF(k.amortToupieF),    BG1);
+  bRow(item++, 'Amortissement (POMPE A BETON)','H',   fmt(k.amortPompeRate),    fmtD(k.amortPompeH),     fmtF(k.amortPompeF),     BG0);
+  bRow(item++, 'Amortissement (CENTRALE A BETON)','H',fmt(k.amortCentraleRate), fmtD(k.amortCentraleH),  fmtF(k.amortCentraleF),  BG1);
+  bRow(item++, 'Amortissement (GROUPE ELECTROGENE)','H',fmt(k.amortGroupeRate), fmtD(k.amortGroupeH),    fmtF(k.amortGroupeF),    BG0);
+  bRow(item++, 'Amortissement (CHARGEUSE)',  'H',     fmt(k.amortChargeuseRate),fmtD(k.amortChargeuseH), fmtF(k.amortChargeuseF), BG1);
+  bRow(item++, 'Frais restauration & Divers','plat',  fmt(k.prixRepas || 1500), fmt(k.nbRepas || 12),   fmtF(k.fraisRestauration), BG0);
+
+  // Sous-total approvisionnements + amortissement
+  const totalAppro = (k.coutMateriaux || 0) + (k.coutGasoil || 0) + (k.coutAmortissement || 0) + (k.fraisRestauration || 0);
+  doc.rect(45, y, 505, 17).fillColor(BLEU_CLAIR).fill();
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(BLEU_FONCE)
+    .text('Total approvisionnements et Amortissement', 50, y + 4, { width: 380, lineBreak: false })
+    .text(fmtF(totalAppro), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+  y += 19;
+
+  // Charge du personnel
+  bRow(item++, 'Charge du personnel', 'm³', '245', fmtD(c.volumeBeton), fmtF(k.coutPersonnel), BLANC);
+
+  // Total charges de fonctionnement
+  doc.rect(45, y, 505, 17).fillColor(BLEU_CLAIR).fill();
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(BLEU_FONCE)
+    .text('Total charges de fonctionnement', 50, y + 4, { width: 380, lineBreak: false })
+    .text(fmtF(k.coutTotal), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+  y += 19;
+
+  // BUDGET TOTAL
+  doc.rect(45, y, 505, 19).fillColor(BLEU_FONCE).fill();
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
+    .text('BUDGET TOTAL', 50, y + 5, { width: 380, lineBreak: false })
+    .text(fmtF(k.coutTotal), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
+  y += 21;
+
+  // Coût de production
+  doc.rect(45, y, 505, 17).fillColor(GRIS_LEGER).fill();
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
+    .text(`Coût de production (FCFA/m³)`, 50, y + 4, { width: 380, lineBreak: false })
+    .text(fmtF(k.coutUnitaire), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+  y += 19;
+
+  // Montant commande + marge
+  if (c.montantCommande) {
+    doc.rect(45, y, 505, 17).fillColor(BLANC).fill();
+    doc.fontSize(8.5).font('Helvetica').fillColor(NOIR)
+      .text('Montant commande client', 50, y + 4, { width: 380, lineBreak: false })
+      .text(fmtF(c.montantCommande), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+    y += 17;
+
+    const margePos  = (k.margePrevisionnelle || 0) >= 0;
+    const margeBg   = margePos ? VERT_CLAIR : ROUGE_CLAIR;
+    const margeColor = margePos ? VERT : ROUGE;
+    doc.rect(45, y, 505, 19).fillColor(margeBg).fill();
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(margeColor)
+      .text(`Marge Brute Bénéficiaire`, 50, y + 5, { width: 310, lineBreak: false })
+      .text(`${fmtD(k.tauxMarge)}%`, 365, y + 5, { width: 70, align: 'right', lineBreak: false })
+      .text(fmtF(k.margePrevisionnelle), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
+    y += 21;
   }
 
-  // Ligne coût total (fond bleu clair + gras)
-  y += 2;
-  doc.rect(45, y, 505, 20).fillColor(BLEU_CLAIR).fill();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(BLEU_FONCE)
-    .text('COÛT DE PRODUCTION TOTAL', 50, y + 5, { width: 325, lineBreak: false })
-    .text(fmtF(k.coutTotal), 380, y + 5, { width: 160, align: 'right', lineBreak: false });
-  y += 22;
-  y = ligneFinanciere(doc, y, `Coût unitaire / m³ (base ${fmtD(c.volumeBeton)} m³)`, fmtF(k.coutUnitaire), GRIS_LEGER, GRIS);
-
-  // Ligne montant commande
-  y += 2;
-  doc.rect(45, y, 505, 20).fillColor(BLEU_FONCE).fill();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
-    .text('MONTANT COMMANDE CLIENT', 50, y + 5, { width: 325, lineBreak: false })
-    .text(fmtF(c.montantCommande), 380, y + 5, { width: 160, align: 'right', lineBreak: false });
-  y += 22;
-
-  // Ligne marge commerciale
-  const margePos = (k.margePrevisionnelle || 0) >= 0;
-  const margeBg   = margePos ? VERT_CLAIR : ROUGE_CLAIR;
-  const margeColor = margePos ? VERT : ROUGE;
-  doc.rect(45, y, 505, 20).fillColor(margeBg).fill();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(margeColor)
-    .text(`Marge commerciale (${fmtD(k.tauxMarge)}%)`, 50, y + 5, { width: 325, lineBreak: false })
-    .text(fmtF(k.margePrevisionnelle), 380, y + 5, { width: 160, align: 'right', lineBreak: false });
-  y += 24;
-
-  // ── ANALYSE DE RENTABILITÉ — USAGE INTERNE ────────────────────────────
-  y += 2;
-  // Bandeau titre "interne"
-  doc.rect(45, y, 505, 20).fillColor('#78350f').fill();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
-    .text('ANALYSE DE RENTABILITÉ — USAGE INTERNE CONFIDENTIEL', 50, y + 5, { width: 460, lineBreak: false });
-  y += 22;
-
-  y = ligneFinanciere(doc, y, 'Loyer / Location centrale (proratisé au volume)', fmtF(k.fraisLoyer), BLANC, GRIS);
-  y = ligneFinanciere(doc, y, 'Frais généraux (électricité, eau, bureau — proratisés)', fmtF(k.fraisAutresCharges), GRIS_LEGER, GRIS);
-  y = ligneFinanciere(doc, y, `Impôts et taxes (5% du CA = 5% × ${fmtF(c.montantCommande)})`, fmtF(k.fraisImpots), BLANC, GRIS);
-
-  // Total charges
-  y += 2;
-  doc.rect(45, y, 505, 18).fillColor(ORANGE_CLAIR).fill();
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(ORANGE)
-    .text('Total charges d\'exploitation', 50, y + 4, { width: 325, lineBreak: false })
-    .text(fmtF(k.chargesExploitation), 380, y + 4, { width: 160, align: 'right', lineBreak: false });
-  y += 20;
-
-  // Bénéfice réel net
-  const benefPos = (k.beneficeReel || 0) >= 0;
-  const benefBg    = benefPos ? VERT_CLAIR : ROUGE_CLAIR;
-  const benefColor = benefPos ? VERT : ROUGE;
-  y += 2;
-  doc.rect(45, y, 505, 22).fillColor(benefBg).fill();
-  doc.fontSize(10).font('Helvetica-Bold').fillColor(benefColor)
-    .text(`BÉNÉFICE RÉEL NET (${fmtD(k.tauxBeneficeReel)}% du CA)`, 50, y + 6, { width: 325, lineBreak: false })
-    .text(fmtF(k.beneficeReel), 380, y + 6, { width: 160, align: 'right', lineBreak: false });
-  y += 26;
+  // Signatures
+  y += 8;
+  doc.rect(45, y, 505, 60).fillColor(GRIS_LEGER).fill();
+  doc.moveTo(45, y + 60).lineTo(550, y + 60).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+  const sigW = 505 / 3;
+  ['Responsable Usine', 'Comptabilité', 'Direction Générale'].forEach((role, i) => {
+    const sx = 45 + i * sigW;
+    doc.moveTo(sx, y).lineTo(sx + sigW, y).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
+      .text(role, sx + 5, y + 6, { width: sigW - 10, align: 'center', lineBreak: false });
+  });
+  y += 62;
 
   // ── CONDITIONS ─────────────────────────────────────────────────────────
   doc.moveTo(45, y).lineTo(550, y).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();

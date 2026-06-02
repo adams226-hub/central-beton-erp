@@ -44,77 +44,86 @@ const genererPDF = asyncHandler(async (req, res) => {
   const f = commande.formulation;
   const v = commande.volumeBeton || 0;
 
-  // Toujours recalculer depuis la formulation actuelle (évite les valeurs stale en base)
-  const totalCiment     = f ? Math.round(f.ciment     * v * 10) / 10 : 0;
-  const totalGravier515 = f ? Math.round(f.gravier515 * v * 10) / 10 : 0;
-  const totalGravier1525= f ? Math.round(f.gravier1525* v * 10) / 10 : 0;
-  const totalSable      = f ? Math.round(f.sable      * v * 10) / 10 : 0;
-  const totalPowerflow  = f ? Math.round(f.powerflow  * v)            : 0;
-  const ratio = v / 200;
-  const totalGasoilGroupe   = f ? Math.round(f.gasoilGroupe   * ratio) : 0;
-  const totalGasoilToupie   = f ? Math.round(f.gasoilToupie   * ratio) : 0;
-  const totalGasoilChargeur = f ? Math.round(f.gasoilChargeur * ratio) : 0;
-  const totalGasoilPompe    = f ? Math.round(f.gasoilPompe    * ratio) : 0;
-  const totalGasoil = totalGasoilGroupe + totalGasoilToupie + totalGasoilChargeur + totalGasoilPompe;
-
-  const prixGasoil = 675;
-  const coutCiment     = f ? Math.round(totalCiment     * f.prixCiment)    : 0;
-  const coutGravier515 = f ? Math.round(totalGravier515 * f.prixGravier515): 0;
-  const coutGravier1525= f ? Math.round(totalGravier1525* f.prixGravier1525): 0;
-  const coutSable      = f ? Math.round(totalSable      * f.prixSable)     : 0;
-  const coutPowerflow  = f ? Math.round(totalPowerflow  * (f.prixPowerflow || 1750)) : 0;
-  const coutMateriaux  = coutCiment + coutGravier515 + coutGravier1525 + coutSable + coutPowerflow;
-
-  const coutGasoilGroupe   = totalGasoilGroupe   * prixGasoil;
-  const coutGasoilToupie   = totalGasoilToupie   * prixGasoil;
-  const coutGasoilChargeur = totalGasoilChargeur * prixGasoil;
-  const coutGasoilPompe    = totalGasoilPompe    * prixGasoil;
-  const coutGasoil = coutGasoilGroupe + coutGasoilToupie + coutGasoilChargeur + coutGasoilPompe;
-
-  const coutAmortissement = f ? Math.round(
-    (f.amortToupie * f.hToupie + f.amortPompe * f.hPompe +
-     f.amortCentrale * f.hCentrale + f.amortGroupe * f.hGroupe +
-     f.amortChargeuse * f.hChargeuse) * ratio
-  ) : 0;
+  // Recalcul des coûts matières individuels depuis la formulation stockée
+  const coutCiment    = f ? Math.round((commande.totalCiment || 0) * f.prixCiment) : 0;
+  const coutGravier515 = f ? Math.round((commande.totalGravier515 || 0) * f.prixGravier515) : 0;
+  const coutGravier1525= f ? Math.round((commande.totalGravier1525 || 0) * f.prixGravier1525) : 0;
+  const coutSable      = f ? Math.round((commande.totalSable || 0) * f.prixSable) : 0;
+  const coutPowerflow  = f ? Math.round((commande.totalPowerflow || 0) * (f.prixPowerflow || 1750)) : 0;
 
   const params = await parametresService.get();
-  const fraisRestauration = Math.ceil(v / 200) * 12 * (params.fraisRestaurationPlat ?? 1500);
-  const fraisTransport    = commande.fraisTransport || 0;
-  const distance          = commande.distanceLivraison || 0;
-  const coutPersonnel     = Math.round(v * (params.chargePersonnelM3 ?? 245));
+  const VOL_REF = params.volumeRefMensuel ?? 200;
+  const ratio   = v > 0 ? v / VOL_REF : 0;
+  const fraisRestauration = Math.ceil(v / VOL_REF) * (params.nbRepasRef ?? 12) * (params.fraisRestaurationPlat ?? 1500);
+  const nbRepas   = Math.ceil(v / VOL_REF) * (params.nbRepasRef ?? 12);
+  const prixRepas = params.fraisRestaurationPlat ?? 1500;
+  const fraisTransport = commande.fraisTransport || 0;
+  const distance       = commande.distanceLivraison || 0;
 
-  const coutTotal   = coutMateriaux + coutGasoil + coutAmortissement + coutPersonnel + fraisRestauration + fraisTransport;
-  const coutUnitaire = v > 0 ? Math.round(coutTotal / v) : 0;
-  const margePrevisionnelle = commande.montantCommande ? Math.round(commande.montantCommande - coutTotal) : 0;
-  const tauxMarge = commande.montantCommande > 0 ? Math.round((margePrevisionnelle / commande.montantCommande) * 10000) / 100 : 0;
-
+  // Charges d'exploitation
   const fraisLoyer         = Math.round(params.loyerMensuel ?? 500_000);
   const fraisAutresCharges = Math.round(params.fraisGenerauxMensuels ?? 150_000);
   const fraisImpots        = Math.round((commande.montantCommande || 0) * (params.impotsTaux ?? 0.05));
   const chargesExploitation = fraisLoyer + fraisAutresCharges + fraisImpots;
-  const beneficeReel       = margePrevisionnelle - chargesExploitation;
-  const tauxBeneficeReel   = commande.montantCommande > 0 ? Math.round((beneficeReel / commande.montantCommande) * 10000) / 100 : 0;
+
+  // Détails individuels pour le PDF budget
+  const gasoilGroupeL   = f ? Math.round(f.gasoilGroupe   * ratio) : 0;
+  const gasoilToupieL   = f ? Math.round(f.gasoilToupie   * ratio) : 0;
+  const gasoilChargeurL = f ? Math.round(f.gasoilChargeur * ratio) : 0;
+  const gasoilPompeL    = f ? Math.round(f.gasoilPompe    * ratio) : 0;
+  const totalHydrofuge  = f ? Math.round(f.hydrofuge * v) : 0;
+  const coutHydrofuge   = f ? Math.round(totalHydrofuge * (f.prixHydrofuge || 2750)) : 0;
+
+  const amortToupieH    = f ? Math.round(f.hToupie    * ratio * 100) / 100 : 0;
+  const amortPompeH     = f ? Math.round(f.hPompe     * ratio * 100) / 100 : 0;
+  const amortCentraleH  = f ? Math.round(f.hCentrale  * ratio * 100) / 100 : 0;
+  const amortGroupeH    = f ? Math.round(f.hGroupe    * ratio * 100) / 100 : 0;
+  const amortChargeuseH = f ? Math.round(f.hChargeuse * ratio * 100) / 100 : 0;
 
   const calculs = {
-    totalCiment, totalGravier515, totalGravier1525, totalSable, totalPowerflow, totalGasoil,
-    totalGasoilGroupe, totalGasoilToupie, totalGasoilChargeur, totalGasoilPompe,
-    coutCiment, coutGravier515, coutGravier1525, coutSable, coutPowerflow,
-    coutGasoilGroupe, coutGasoilToupie, coutGasoilChargeur, coutGasoilPompe,
-    coutMateriaux, coutGasoil, coutAmortissement, coutPersonnel,
-    fraisRestauration, fraisTransport,
-    amortToupie:    f ? Math.round(f.amortToupie    * f.hToupie    * ratio) : 0,
-    amortPompe:     f ? Math.round(f.amortPompe     * f.hPompe     * ratio) : 0,
-    amortCentrale:  f ? Math.round(f.amortCentrale  * f.hCentrale  * ratio) : 0,
-    amortGroupe:    f ? Math.round(f.amortGroupe     * f.hGroupe    * ratio) : 0,
-    amortChargeuse: f ? Math.round(f.amortChargeuse * f.hChargeuse * ratio) : 0,
-    hToupie: f ? Math.round(f.hToupie * ratio * 10) / 10 : 0,
-    hPompe:  f ? Math.round(f.hPompe  * ratio * 10) / 10 : 0,
-    hCentrale: f ? Math.round(f.hCentrale * ratio * 10) / 10 : 0,
-    hGroupe:   f ? Math.round(f.hGroupe   * ratio * 10) / 10 : 0,
-    hChargeuse: f ? Math.round(f.hChargeuse * ratio * 10) / 10 : 0,
-    coutTotal, coutUnitaire, margePrevisionnelle, tauxMarge,
-    fraisLoyer, fraisAutresCharges, fraisImpots, chargesExploitation,
-    beneficeReel, tauxBeneficeReel,
+    totalCiment:     commande.totalCiment,
+    totalGravier515: commande.totalGravier515,
+    totalGravier1525:commande.totalGravier1525,
+    totalSable:      commande.totalSable,
+    totalPowerflow:  commande.totalPowerflow,
+    totalGasoil:     commande.totalGasoil,
+    totalHydrofuge,
+    coutCiment, coutGravier515, coutGravier1525, coutSable, coutPowerflow, coutHydrofuge,
+    coutMateriaux:     commande.coutMateriaux,
+    coutGasoil:        commande.coutGasoil,
+    coutAmortissement: commande.coutAmortissement,
+    coutPersonnel:     commande.coutPersonnel,
+    fraisRestauration, nbRepas, prixRepas,
+    fraisTransport,
+    coutTotal:         commande.coutTotal,
+    coutUnitaire:      commande.coutUnitaire,
+    margePrevisionnelle: commande.margePrevisionnelle,
+    tauxMarge:         commande.tauxMarge,
+    fraisLoyer, fraisAutresCharges, fraisImpots,
+    chargesExploitation,
+    beneficeReel:      commande.beneficeReel || (commande.margePrevisionnelle || 0) - chargesExploitation,
+    tauxBeneficeReel:  commande.tauxBeneficeReel || 0,
+    // Gasoil détail
+    gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL,
+    // Amort détail
+    amortToupieH, amortPompeH, amortCentraleH, amortGroupeH, amortChargeuseH,
+    amortToupieRate:    f?.amortToupie    || 6648,
+    amortPompeRate:     f?.amortPompe     || 33300,
+    amortCentraleRate:  f?.amortCentrale  || 17200,
+    amortGroupeRate:    f?.amortGroupe    || 7500,
+    amortChargeuseRate: f?.amortChargeuse || 45550,
+    amortToupieF:    Math.round((f?.amortToupie    || 6648)  * amortToupieH),
+    amortPompeF:     Math.round((f?.amortPompe     || 33300) * amortPompeH),
+    amortCentraleF:  Math.round((f?.amortCentrale  || 17200) * amortCentraleH),
+    amortGroupeF:    Math.round((f?.amortGroupe    || 7500)  * amortGroupeH),
+    amortChargeuseF: Math.round((f?.amortChargeuse || 45550) * amortChargeuseH),
+    // Prix unitaires
+    prixCiment:    f?.prixCiment    || 105500,
+    prixSable:     f?.prixSable     || 16000,
+    prixGravier515:f?.prixGravier515|| 11500,
+    prixGravier1525:f?.prixGravier1525||11500,
+    prixPowerflow: f?.prixPowerflow || 1750,
+    prixHydrofuge: f?.prixHydrofuge || 2750,
   };
 
   const doc = generateDevis(commande, calculs);
