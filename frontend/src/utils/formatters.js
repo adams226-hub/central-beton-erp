@@ -35,13 +35,13 @@ export const STATUT_CONFIG = {
 };
 
 export const ROLE_LABELS = {
-  PDG: 'PDG',
-  SECRETAIRE: 'Secrétaire',
-  CHEF_DE_SITE: 'Chef de site',
-  ASSISTANT_COMPTABLE: 'Asst. Comptable',
-  CHEF_COMPTABLE: 'Chef Comptable',
-  COMPTABLE: 'Comptable',
-  OPERATEUR: 'Opérateur',
+  PDG:                 'PDG',
+  SECRETAIRE:          'Secrétaire Responsable',
+  CHEF_DE_SITE:        'Chef de Site Responsable',
+  ASSISTANT_COMPTABLE: 'Comptable Responsable',
+  CHEF_COMPTABLE:      'Chef Comptable',
+  COMPTABLE:           'Comptable',
+  OPERATEUR:           'Opérateur',
 };
 
 export const ROLE_COLORS = {

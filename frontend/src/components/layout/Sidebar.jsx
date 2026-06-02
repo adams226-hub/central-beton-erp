@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { cn } from '../../lib/utils';
+import { ROLE_LABELS } from '../../utils/formatters';
 
 const NAV_GROUPS = [
   {
@@ -175,7 +176,7 @@ const Sidebar = () => {
                 className="flex-1 min-w-0"
               >
                 <p className="text-sm font-medium truncate">{user?.prenom} {user?.nom}</p>
-                <p className="text-amp-400 text-xs truncate">{user?.role?.replace('_', ' ')}</p>
+                <p className="text-amp-400 text-xs truncate">{ROLE_LABELS[user?.role] || user?.role}</p>
               </motion.div>
             )}
           </AnimatePresence>
