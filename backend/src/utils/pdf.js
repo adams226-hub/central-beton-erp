@@ -159,13 +159,22 @@ const generateDevis = (commande, calculs) => {
   y += 16;
 
   const matieres = [
-    ['Ciment CPA 42.5', 't',   fmtD(k.totalCiment),   fmtF(k.coutCiment)],
-    ['Gravier 5/15',    't',   fmtD(k.totalGravier515), fmtF(k.coutGravier515)],
-    ['Gravier 15/25',   't',   fmtD(k.totalGravier1525),fmtF(k.coutGravier1525)],
-    ['Sable naturel',   'm³',  fmtD(k.totalSable),     fmtF(k.coutSable)],
-    ['Powerflow 6425',  'L',   fmt(k.totalPowerflow),  fmtF(k.coutPowerflow)],
-    ['Gasoil production','L',  fmt(k.totalGasoil),     fmtF(k.coutGasoil)],
-  ];
+    ['CIMENT',                    't',  fmtD(k.totalCiment),        fmtF(k.coutCiment)],
+    ['Gravier 5/15',              't',  fmtD(k.totalGravier515),    fmtF(k.coutGravier515)],
+    ['Gravier 15/25',             't',  fmtD(k.totalGravier1525),   fmtF(k.coutGravier1525)],
+    ['Sable Naturel (Centrale)',  'm³', fmtD(k.totalSable),         fmtF(k.coutSable)],
+    ['Powerflow 6425',            'L',  fmt(k.totalPowerflow),      fmtF(k.coutPowerflow)],
+    ['Gasoil groupe électrogène', 'L',  fmt(k.totalGasoilGroupe),   fmtF(k.coutGasoilGroupe)],
+    ['Gasoil pour toupies',       'L',  fmt(k.totalGasoilToupie),   fmtF(k.coutGasoilToupie)],
+    ['Gasoil pour chargeur',      'L',  fmt(k.totalGasoilChargeur), fmtF(k.coutGasoilChargeur)],
+    ['Gasoil pour pompe à béton', 'L',  fmt(k.totalGasoilPompe),    fmtF(k.coutGasoilPompe)],
+    ['Amort. Toupie',             'H',  fmtD(k.hToupie),            fmtF(k.amortToupie)],
+    ['Amort. Pompe à béton',      'H',  fmtD(k.hPompe),             fmtF(k.amortPompe)],
+    ['Amort. Centrale à béton',   'H',  fmtD(k.hCentrale),          fmtF(k.amortCentrale)],
+    ['Amort. Groupe électrogène', 'H',  fmtD(k.hGroupe),            fmtF(k.amortGroupe)],
+    ['Amort. Chargeuse',          'H',  fmtD(k.hChargeuse),         fmtF(k.amortChargeuse)],
+    ['Frais restauration & divers','plat', fmt(Math.ceil((commande.volumeBeton||0)/200)*12), fmtF(k.fraisRestauration)],
+  ].filter(r => parseFloat(r[2]) > 0);
   matieres.forEach((row, i) => {
     drawRow(doc, y, ROW_H, colM, row, i % 2 === 0 ? BLANC : GRIS_LEGER, [NOIR, NOIR, NOIR, NOIR], [false, false, false, false]);
     y += ROW_H;
