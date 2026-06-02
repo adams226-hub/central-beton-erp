@@ -38,15 +38,15 @@ Chantier     : ${commande.adresseChantier}
 Étape        : ${etape}
 ━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Connectez-vous à la plateforme AMP BÉTON ERP pour valider ou rejeter cette commande.
+Connectez-vous à la plateforme AMP BÉTON  pour valider ou rejeter cette commande.
 
 Cordialement,
-AMP BÉTON ERP
+AMP BÉTON 
   `.trim();
 
   try {
     await transporter.sendMail({
-      from: `"AMP BÉTON ERP" <${process.env.EMAIL_USER}>`,
+      from: `"AMP BÉTON" <${process.env.EMAIL_USER}>`,
       to,
       subject: sujet,
       text: corps,

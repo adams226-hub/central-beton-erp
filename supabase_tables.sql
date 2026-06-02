@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════
--- AMP BÉTON ERP — Création complète des tables
+-- AMP BÉTON  — Création complète des tables
 -- SANS INSERT — À exécuter dans Supabase SQL Editor
 -- ═══════════════════════════════════════════════════════
 
