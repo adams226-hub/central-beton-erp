@@ -612,38 +612,17 @@ const generateFactureProforma = (commande) => {
 
   y += condH + 12;
 
-  // ── 5 blocs signatures ────────────────────────────────────────────────────
-  const SIGS = [
-    { titre: 'SECRETAIRE RESPONSABLE',   nom: 'NEIMATOU KONATE' },
-    { titre: 'COMPTABLE RESPONSABLE',    nom: 'NACHIA SANOU' },
-    { titre: 'CHEF COMPTABLE',           nom: 'BRUNO ZOUNGRANA' },
-    { titre: 'CHEF DE SITE RESPONSABLE', nom: 'LANDRY SAVADOGO' },
-    { titre: 'PDG',                      nom: 'ROMARIC BATIONO' },
-  ];
-  const sigBW = W / SIGS.length;
-  const sigBH = 52;
-  doc.rect(L, y, W, sigBH).fillColor(GRIS_LEGER).fill();
-  SIGS.forEach(({ titre, nom }, i) => {
-    const sx = L + i * sigBW;
-    if (i > 0) doc.moveTo(sx, y).lineTo(sx, y + sigBH).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
-    doc.fontSize(7).font('Helvetica-Bold').fillColor(NOIR)
-      .text(titre, sx + 3, y + 5, { width: sigBW - 6, align: 'center', lineBreak: false });
-    doc.moveTo(sx + 6, y + 38).lineTo(sx + sigBW - 6, y + 38).lineWidth(0.4).strokeColor(GRIS_MOY).stroke();
-    doc.fontSize(6.5).font('Helvetica').fillColor(GRIS)
-      .text(nom, sx + 3, y + 41, { width: sigBW - 6, align: 'center', lineBreak: false });
-  });
-  doc.rect(L, y, W, sigBH).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
-  y += sigBH + 10;
+  // Espace pour signature manuelle côté client
+  doc.moveTo(L + 320, y + 40).lineTo(L + W, y + 40).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
+    .text('Signature & Cachet Client', L + 330, y + 5, { width: 165, align: 'center' });
 
-  // ── Pied de page ──────────────────────────────────────────────────────────
+  // ── Pied de page supprimé sur demande ─────────────────────────────────────
   const pH = doc.page.height;
-  doc.rect(0, pH - 68, 595, 68).fillColor('#92400e').fill();
-  doc.fontSize(8).font('Helvetica').fillColor('#fed7aa')
-    .text('SARL au capital de 1.000.000 fCFA - 04 BP 536 Ouagadougou 04', 0, pH - 62, { align: 'center', width: 595 })
-    .text('Secteur 33 - Parcelle HL - Section Q - Lot 24', 0, pH - 50, { align: 'center', width: 595 })
-    .text('Tél. : +226 04 42 92 92 ; E-mail: r.bationo@amp-bf.com', 0, pH - 38, { align: 'center', width: 595 })
-    .text('RCCM: BF OUA 2025-B13-08156 ; IFU N°00271525G', 0, pH - 26, { align: 'center', width: 595 })
-    .text('Compte bancaire: BCB N° BF42 BF056 01008 050121287801 04', 0, pH - 14, { align: 'center', width: 595 });
+  // Ligne fine en bas
+  doc.moveTo(L, pH - 30).lineTo(L + W, pH - 30).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
+  doc.fontSize(7).font('Helvetica').fillColor(GRIS)
+    .text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} — AMP BÉTON`, L, pH - 22, { align: 'center', width: W });
 
   return doc;
 };
