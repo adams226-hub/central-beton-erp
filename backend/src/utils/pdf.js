@@ -255,16 +255,27 @@ const generateDevis = (commande, calculs) => {
 
   // Signatures
   y += 8;
-  doc.rect(45, y, 505, 60).fillColor(GRIS_LEGER).fill();
-  doc.moveTo(45, y + 60).lineTo(550, y + 60).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
-  const sigW = 505 / 3;
-  ['Responsable Usine', 'Comptabilité', 'Direction Générale'].forEach((role, i) => {
-    const sx = 45 + i * sigW;
-    doc.moveTo(sx, y).lineTo(sx + sigW, y).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
-    doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
-      .text(role, sx + 5, y + 6, { width: sigW - 10, align: 'center', lineBreak: false });
+  const SIGS_D = [
+    { titre: 'SECRETAIRE RESPONSABLE',   nom: 'NEIMATOU KONATE' },
+    { titre: 'COMPTABLE RESPONSABLE',    nom: 'NACHIA SANOU' },
+    { titre: 'CHEF COMPTABLE',           nom: 'BRUNO ZOUNGRANA' },
+    { titre: 'CHEF DE SITE RESPONSABLE', nom: 'LANDRY SAVADOGO' },
+    { titre: 'PDG',                      nom: 'ROMARIC BATIONO' },
+  ];
+  const dSigW = 505 / SIGS_D.length;
+  const dSigH = 52;
+  doc.rect(45, y, 505, dSigH).fillColor(GRIS_LEGER).fill();
+  SIGS_D.forEach(({ titre, nom }, i) => {
+    const sx = 45 + i * dSigW;
+    if (i > 0) doc.moveTo(sx, y).lineTo(sx, y + dSigH).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
+    doc.fontSize(7).font('Helvetica-Bold').fillColor(NOIR)
+      .text(titre, sx + 3, y + 5, { width: dSigW - 6, align: 'center', lineBreak: false });
+    doc.moveTo(sx + 6, y + 38).lineTo(sx + dSigW - 6, y + 38).lineWidth(0.4).strokeColor(GRIS_MOY).stroke();
+    doc.fontSize(6.5).font('Helvetica').fillColor(GRIS)
+      .text(nom, sx + 3, y + 41, { width: dSigW - 6, align: 'center', lineBreak: false });
   });
-  y += 62;
+  doc.rect(45, y, 505, dSigH).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+  y += dSigH + 6;
 
   // ── CONDITIONS ─────────────────────────────────────────────────────────
   doc.moveTo(45, y).lineTo(550, y).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
@@ -503,17 +514,33 @@ const generateFactureProforma = (commande) => {
   doc.fontSize(11).font('Helvetica-Bold').fillColor(NOIR)
     .text(titre, L, 122, { align: 'center', width: W, underline: true });
 
-  // ── Doit : ────────────────────────────────────────────────────────────────
-  let y = 160;
+  // ── Doit (infos client) ───────────────────────────────────────────────────
+  let y = 150;
   doc.fontSize(10).font('Helvetica-Bold').fillColor(NOIR).text('Doit :', L, y);
-  y += 16;
-  doc.fontSize(10).font('Helvetica').fillColor(NOIR).text(c.nomClient || '—', L, y);
   y += 14;
-  if (c.adresseChantier) {
-    doc.text(`SITE: ${c.adresseChantier}`, L, y);
-    y += 14;
+  doc.fontSize(10).font('Helvetica-Bold').fillColor(NOIR).text(c.nomClient || '—', L, y);
+  y += 13;
+  if (c.telephone) {
+    doc.fontSize(9).font('Helvetica').fillColor(NOIR).text(`Tél. : ${c.telephone}`, L, y);
+    y += 12;
   }
-  y += 8;
+  if (c.adresseChantier) {
+    doc.fontSize(9).font('Helvetica').fillColor(NOIR).text(`Adresse / Site : ${c.adresseChantier}`, L, y);
+    y += 12;
+  }
+  if (c.ifu) {
+    doc.fontSize(9).font('Helvetica').fillColor(NOIR).text(`IFU N° : ${c.ifu}`, L, y);
+    y += 12;
+  }
+  if (c.rccm) {
+    doc.fontSize(9).font('Helvetica').fillColor(NOIR).text(`RCCM : ${c.rccm}`, L, y);
+    y += 12;
+  }
+  if (c.regimeImposition) {
+    doc.fontSize(9).font('Helvetica').fillColor(NOIR).text(`Régime d'imposition : ${c.regimeImposition}`, L, y);
+    y += 12;
+  }
+  y += 6;
 
   // Objet
   doc.fontSize(10).font('Helvetica-Bold').fillColor(NOIR)
@@ -583,11 +610,30 @@ const generateFactureProforma = (commande) => {
     .text('Délai de livraison 7 jours après le paiement', L + 8, y + 22)
     .text('PS: Toute somme versée est non remboursable', L + 8, y + 36, { oblique: true });
 
-  // Signature COMPTABILITE à droite
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
-    .text('COMPTABILITE', L + 330, y + 5, { width: 165, align: 'center' });
-  doc.moveTo(L + 345, y + 50).lineTo(L + 480, y + 50).lineWidth(0.5).strokeColor(GRIS).stroke();
-  y += condH + 20;
+  y += condH + 12;
+
+  // ── 5 blocs signatures ────────────────────────────────────────────────────
+  const SIGS = [
+    { titre: 'SECRETAIRE RESPONSABLE',   nom: 'NEIMATOU KONATE' },
+    { titre: 'COMPTABLE RESPONSABLE',    nom: 'NACHIA SANOU' },
+    { titre: 'CHEF COMPTABLE',           nom: 'BRUNO ZOUNGRANA' },
+    { titre: 'CHEF DE SITE RESPONSABLE', nom: 'LANDRY SAVADOGO' },
+    { titre: 'PDG',                      nom: 'ROMARIC BATIONO' },
+  ];
+  const sigBW = W / SIGS.length;
+  const sigBH = 52;
+  doc.rect(L, y, W, sigBH).fillColor(GRIS_LEGER).fill();
+  SIGS.forEach(({ titre, nom }, i) => {
+    const sx = L + i * sigBW;
+    if (i > 0) doc.moveTo(sx, y).lineTo(sx, y + sigBH).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
+    doc.fontSize(7).font('Helvetica-Bold').fillColor(NOIR)
+      .text(titre, sx + 3, y + 5, { width: sigBW - 6, align: 'center', lineBreak: false });
+    doc.moveTo(sx + 6, y + 38).lineTo(sx + sigBW - 6, y + 38).lineWidth(0.4).strokeColor(GRIS_MOY).stroke();
+    doc.fontSize(6.5).font('Helvetica').fillColor(GRIS)
+      .text(nom, sx + 3, y + 41, { width: sigBW - 6, align: 'center', lineBreak: false });
+  });
+  doc.rect(L, y, W, sigBH).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+  y += sigBH + 10;
 
   // ── Pied de page ──────────────────────────────────────────────────────────
   const pH = doc.page.height;

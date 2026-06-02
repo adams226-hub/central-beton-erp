@@ -8,7 +8,7 @@ async function main() {
 
   // ─── Utilisateurs ─────────────────────────────────
   const users = [
-    { nom: 'BATIONO', prenom: 'Romacic', email: 'pdg@ampbeton.bf', password: 'Admin@2026', role: 'PDG', telephone: '+226 70 00 00 01' },
+    { nom: 'BATIONO', prenom: 'Romaric', email: 'pdg@ampbeton.bf', password: 'Admin@2026', role: 'PDG', telephone: '+226 70 00 00 01' },
     { nom: 'OUEDRAOGO', prenom: 'Fatima', email: 'secretaire@ampbeton.bf', password: 'Secret@2026', role: 'SECRETAIRE', telephone: '+226 70 00 00 02' },
     { nom: 'SAVADOGO', prenom: 'Landry', email: 'chefsite@ampbeton.bf', password: 'Chef@2026', role: 'CHEF_DE_SITE', telephone: '+226 70 00 00 03' },
     { nom: 'SANOU', prenom: 'Nachia', email: 'chefcomptable@ampbeton.bf', password: 'Chef@Compta2026', role: 'CHEF_COMPTABLE', telephone: '+226 70 00 00 04' },

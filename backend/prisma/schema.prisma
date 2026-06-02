@@ -279,13 +279,16 @@ model FormulationHistorique {
 model Commande {
   id              String         @id @default(cuid())
   reference       String         @unique
-  nomClient       String
-  telephone       String
-  adresseChantier String
-  volumeBeton     Float
-  typeBeton       String
-  dateLivraison   DateTime
-  observations    String?        @db.Text
+  nomClient          String
+  telephone          String
+  adresseChantier    String
+  ifu                String?
+  rccm               String?
+  regimeImposition   String?
+  volumeBeton        Float
+  typeBeton          String
+  dateLivraison      DateTime
+  observations       String?        @db.Text
   statut          StatutCommande @default(BROUILLON)
 
   formulationId String?

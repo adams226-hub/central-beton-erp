@@ -32,6 +32,9 @@ const schema = z.object({
   nomClient: z.string().min(2, 'Nom requis (min 2 caractères)'),
   telephone: z.string().min(8, 'Numéro invalide'),
   adresseChantier: z.string().min(5, 'Adresse requise'),
+  ifu: z.string().optional(),
+  rccm: z.string().optional(),
+  regimeImposition: z.string().optional(),
   volumeBeton: z.coerce.number().positive('Volume doit être positif'),
   typeBeton: z.string().min(1, 'Type béton requis'),
   dateLivraison: z.string().min(1, 'Date requise'),
@@ -65,6 +68,9 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       nomClient: commande.nomClient,
       telephone: commande.telephone,
       adresseChantier: commande.adresseChantier,
+      ifu: commande.ifu || '',
+      rccm: commande.rccm || '',
+      regimeImposition: commande.regimeImposition || '',
       volumeBeton: commande.volumeBeton,
       typeBeton: commande.typeBeton,
       dateLivraison: commande.dateLivraison?.split('T')[0],
@@ -199,6 +205,18 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Adresse du chantier *</label>
             <input {...register('adresseChantier')} placeholder="Ex : Kanis Soleil, Secteur 30, Ouagadougou" className="amp-input" />
             {errors.adresseChantier && <p className="text-red-500 text-xs mt-1">{errors.adresseChantier.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">IFU <span className="text-gray-400 font-normal">(optionnel)</span></label>
+            <input {...register('ifu')} placeholder="Ex : 00271525G" className="amp-input" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">RCCM <span className="text-gray-400 font-normal">(optionnel)</span></label>
+            <input {...register('rccm')} placeholder="Ex : BF OUA 2025-B13-XXXXX" className="amp-input" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Régime d'imposition <span className="text-gray-400 font-normal">(optionnel)</span></label>
+            <input {...register('regimeImposition')} placeholder="Ex : Réel Normal d'Imposition" className="amp-input" />
           </div>
         </div>
       </div>
