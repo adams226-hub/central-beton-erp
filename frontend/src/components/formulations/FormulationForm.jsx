@@ -36,10 +36,20 @@ const Field = ({ label, unit, name, register, error, ...props }) => (
 
 const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
   const isEdit = !!formulation;
+  const REF = 200; // volume de référence en m³
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: formulation ? {
       ...formulation,
+      // Convertir les valeurs stockées (par m³) en quantités pour 200 m³
+      ciment:    +(formulation.ciment    * REF).toFixed(4),
+      sable:     +(formulation.sable     * REF).toFixed(4),
+      gravier515:+(formulation.gravier515* REF).toFixed(4),
+      gravier1525:+(formulation.gravier1525*REF).toFixed(4),
+      eau:       +(formulation.eau       * REF).toFixed(2),
+      hydrofuge: +(formulation.hydrofuge * REF).toFixed(2),
+      powerflow: +(formulation.powerflow * REF).toFixed(2),
       motif: '',
     } : {
       prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500,
@@ -47,7 +57,18 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
     },
   });
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (raw) => {
+    // Diviser par 200 avant d'envoyer au backend (stocker en valeur par m³)
+    const data = {
+      ...raw,
+      ciment:    raw.ciment    / REF,
+      sable:     raw.sable     / REF,
+      gravier515:raw.gravier515/ REF,
+      gravier1525:raw.gravier1525/REF,
+      eau:       raw.eau       / REF,
+      hydrofuge: raw.hydrofuge / REF,
+      powerflow: raw.powerflow / REF,
+    };
     try {
       if (isEdit) {
         await formulationsAPI.modifier(formulation.id, data);
@@ -80,17 +101,20 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
         </div>
       </div>
 
-      {/* Dosages / m³ */}
+      {/* Quantités pour 200 m³ */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Dosages par m³</h3>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Quantités pour 200 m³ de béton</h3>
+        <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 mb-3">
+          Saisissez les quantités nécessaires pour <strong>200 m³</strong>. Le système calcule automatiquement le prix par m³.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Field label="Ciment" unit="t/m³" name="ciment" register={register} error={errors.ciment} type="number" step="0.001" />
-          <Field label="Sable" unit="m³/m³" name="sable" register={register} error={errors.sable} type="number" step="0.01" />
-          <Field label="Gravier 5/15" unit="t/m³" name="gravier515" register={register} error={errors.gravier515} type="number" step="0.001" />
-          <Field label="Gravier 15/25" unit="t/m³" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="0.001" />
-          <Field label="Eau" unit="L/m³" name="eau" register={register} error={errors.eau} type="number" />
-          <Field label="Hydrofuge" unit="L/m³" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="0.1" />
-          <Field label="Powerflow 6425" unit="L/m³" name="powerflow" register={register} error={errors.powerflow} type="number" step="0.1" />
+          <Field label="Ciment" unit="t" name="ciment" register={register} error={errors.ciment} type="number" step="0.1" placeholder="ex: 95" />
+          <Field label="Sable" unit="m³" name="sable" register={register} error={errors.sable} type="number" step="1" placeholder="ex: 100" />
+          <Field label="Gravier 5/15" unit="t" name="gravier515" register={register} error={errors.gravier515} type="number" step="0.1" placeholder="ex: 88" />
+          <Field label="Gravier 15/25" unit="t" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="0.1" placeholder="ex: 155" />
+          <Field label="Eau" unit="L" name="eau" register={register} error={errors.eau} type="number" step="1" placeholder="ex: 35000" />
+          <Field label="Hydrofuge" unit="L" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="1" placeholder="ex: 0" />
+          <Field label="Powerflow 6425" unit="L" name="powerflow" register={register} error={errors.powerflow} type="number" step="1" placeholder="ex: 800" />
         </div>
       </div>
 
