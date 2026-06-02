@@ -610,7 +610,7 @@ const generateFactureProforma = (commande) => {
     .text('Délai de livraison 7 jours après le paiement', L + 8, y + 22)
     .text('PS: Toute somme versée est non remboursable', L + 8, y + 36, { oblique: true });
 
-  y += condH + 12;
+  y += condH + 40;
 
   // ── Signature COMPTABLE (sans nom) ───────────────────────────────────────
   doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
