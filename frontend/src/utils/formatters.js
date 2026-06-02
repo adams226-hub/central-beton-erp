@@ -36,9 +36,9 @@ export const STATUT_CONFIG = {
 
 export const ROLE_LABELS = {
   PDG:                 'PDG',
-  SECRETAIRE:          'Secrétaire Responsable',
-  CHEF_DE_SITE:        'Chef de Site Responsable',
-  ASSISTANT_COMPTABLE: 'Comptable Responsable',
+  SECRETAIRE:          'Gestionnaire Chantier',
+  CHEF_DE_SITE:        'Responsable Usine',
+  ASSISTANT_COMPTABLE: 'Comptable',
   CHEF_COMPTABLE:      'Chef Comptable',
   COMPTABLE:           'Comptable',
   OPERATEUR:           'Opérateur',
