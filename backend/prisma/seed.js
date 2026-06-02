@@ -30,14 +30,21 @@ async function main() {
   const chefId = createdUsers['CHEF_DE_SITE'].id;
 
   // ─── Formulations ──────────────────────────────────
+  // ciment en t/m³ (après refactoring kg→t)
+  // Valeurs C25/30 issues du Budget Fourniture réel AMP BÉTON (94.5 t / 200 m³ = 0.4725 t/m³)
   const formulations = [
-    { nom: 'Béton C25/30 Standard', typeBeton: 'C25/30', ciment: 350, sable: 0.5, gravier515: 0.44, gravier1525: 0.775, eau: 175, hydrofuge: 0, powerflow: 4, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 86179, createdById: chefId },
-    { nom: 'Béton C30/37 Haute Résistance', typeBeton: 'C30/37', ciment: 400, sable: 0.48, gravier515: 0.42, gravier1525: 0.78, eau: 165, hydrofuge: 2, powerflow: 5, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 96000, createdById: chefId },
-    { nom: 'Béton C20/25 Économique', typeBeton: 'C20/25', ciment: 300, sable: 0.52, gravier515: 0.45, gravier1525: 0.77, eau: 185, hydrofuge: 0, powerflow: 0, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 74000, createdById: chefId },
+    { nom: 'Béton C25/30 Standard',         typeBeton: 'C25/30', ciment: 0.4725, sable: 0.5,  gravier515: 0.44, gravier1525: 0.7766, eau: 0.175, hydrofuge: 0, powerflow: 4, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 86179, createdById: chefId },
+    { nom: 'Béton C30/37 Haute Résistance', typeBeton: 'C30/37', ciment: 0.400,  sable: 0.48, gravier515: 0.42, gravier1525: 0.78,   eau: 0.165, hydrofuge: 2, powerflow: 5, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 96000, createdById: chefId },
+    { nom: 'Béton C20/25 Économique',       typeBeton: 'C20/25', ciment: 0.300,  sable: 0.52, gravier515: 0.45, gravier1525: 0.77,   eau: 0.185, hydrofuge: 0, powerflow: 0, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 74000, createdById: chefId },
   ];
 
   for (const f of formulations) {
-    await prisma.formulation.upsert({ where: { typeBeton: f.typeBeton }, update: {}, create: f });
+    const { createdById: _cby, ...updateData } = f;
+    await prisma.formulation.upsert({
+      where: { typeBeton: f.typeBeton },
+      update: updateData,
+      create: f,
+    });
     console.log(`✅ Formulation : ${f.nom}`);
   }
 
