@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Settings, Save, Info, DollarSign, Fuel, Users, Truck } from 'lucide-react';
+import { Settings, Save, Info, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parametresAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -159,15 +159,6 @@ const Parametres = () => {
             readOnly={!canEdit}
           />
           <FieldRow
-            label="Volume de référence mensuel"
-            unit="m³/mois — base de proratisation"
-            name="volumeRefMensuel"
-            register={register}
-            readOnly={!canEdit}
-            step="1"
-            min="1"
-          />
-          <FieldRow
             label="Taux d'impôts et taxes"
             unit="% du montant commande (ex: 5 = 5%)"
             name="impotsTauxPct"
@@ -178,81 +169,28 @@ const Parametres = () => {
           />
         </div>
 
-        {/* Coûts de production */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <SectionTitle icon={Fuel} title="Coûts de production" color="text-blue-600" bg="bg-blue-50" />
-          <FieldRow
-            label="Prix gasoil"
-            unit="FCFA/L"
-            name="prixGasoil"
-            register={register}
-            readOnly={!canEdit}
-          />
-          <FieldRow
-            label="Charge personnel"
-            unit="FCFA/m³"
-            name="chargePersonnelM3"
-            register={register}
-            readOnly={!canEdit}
-          />
-          <FieldRow
-            label="Frais restauration par repas"
-            unit="FCFA/repas"
-            name="fraisRestaurationPlat"
-            register={register}
-            readOnly={!canEdit}
-          />
-          <FieldRow
-            label="Nombre de repas"
-            unit={`pour ${volRef} m³ de référence`}
-            name="nbRepasRef"
-            register={register}
-            readOnly={!canEdit}
-            step="1"
-            min="0"
-          />
-        </div>
-
-        {/* Transport */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <SectionTitle icon={Truck} title="Transport (par km aller-retour)" color="text-green-600" bg="bg-green-50" />
-          <FieldRow
-            label="Frais chauffeur + route"
-            unit="FCFA/km"
-            name="fraisChauffeurKm"
-            register={register}
-            readOnly={!canEdit}
-          />
-        </div>
-
         {/* Impact info card */}
         <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <Info size={16} className="text-orange-600" />
-            <h4 className="text-sm font-semibold text-orange-800">Impact sur coût/m³ (charges fixes proratisées)</h4>
+            <h4 className="text-sm font-semibold text-orange-800">Impact sur chaque commande</h4>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white rounded-xl p-3">
-              <p className="text-xs text-gray-500">Loyer proratisé</p>
+              <p className="text-xs text-gray-500">Loyer appliqué / commande</p>
               <p className="text-lg font-bold text-orange-700 mt-0.5">
-                {loyerM3.toLocaleString('fr-FR')} <span className="text-sm font-normal">FCFA/m³</span>
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {(loyer / 1000).toFixed(0)}k ÷ {volRef} m³
+                {loyer.toLocaleString('fr-FR')} <span className="text-sm font-normal">FCFA</span>
               </p>
             </div>
             <div className="bg-white rounded-xl p-3">
-              <p className="text-xs text-gray-500">Frais généraux proratisés</p>
+              <p className="text-xs text-gray-500">Frais généraux / commande</p>
               <p className="text-lg font-bold text-orange-700 mt-0.5">
-                {fraisGenM3.toLocaleString('fr-FR')} <span className="text-sm font-normal">FCFA/m³</span>
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {(fraisGen / 1000).toFixed(0)}k ÷ {volRef} m³
+                {fraisGen.toLocaleString('fr-FR')} <span className="text-sm font-normal">FCFA</span>
               </p>
             </div>
           </div>
           <p className="text-xs text-orange-600 mt-3">
-            Total charges fixes/m³ : <strong>{(loyerM3 + fraisGenM3).toLocaleString('fr-FR')} FCFA/m³</strong>
+            Total charges fixes / commande : <strong>{(loyer + fraisGen).toLocaleString('fr-FR')} FCFA</strong>
           </p>
         </div>
 

@@ -736,23 +736,3 @@ model ConsoCarburant {
 
   @@map("conso_carburant")
 }
-
-// ═══════════════════════════════════════════════════════
-// PARAMÈTRES ERP — Constantes financières configurables
-// ═══════════════════════════════════════════════════════
-
-model ParametresERP {
-  id                    String   @id @default(cuid())
-  loyerMensuel          Float    @default(500000)
-  fraisGenerauxMensuels Float    @default(150000)
-  volumeRefMensuel      Float    @default(200)
-  prixGasoil            Float    @default(675)
-  chargePersonnelM3     Float    @default(245)
-  fraisRestaurationPlat Float    @default(1500)
-  nbRepasRef            Int      @default(12)
-  impotsTaux            Float    @default(0.05)
-  fraisChauffeurKm      Float    @default(500)
-  updatedAt             DateTime @updatedAt
-  updatedById           String?
-  @@map("parametres_erp")
-}
