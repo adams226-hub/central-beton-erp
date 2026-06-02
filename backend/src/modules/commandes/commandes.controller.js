@@ -124,6 +124,7 @@ const genererPDF = asyncHandler(async (req, res) => {
     prixGravier1525:f?.prixGravier1525||11500,
     prixPowerflow: f?.prixPowerflow || 1750,
     prixHydrofuge: f?.prixHydrofuge || 2750,
+    prixGasoil:    params.prixGasoil ?? 675,
   };
 
   const doc = generateDevis(commande, calculs);

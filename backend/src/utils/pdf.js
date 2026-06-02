@@ -156,48 +156,51 @@ const generateDevis = (commande, calculs) => {
   // Colonnes : Item | Désignation | Unité | Fcfa/u htva | Quantité | Montant HTVA
   const CB = [22, 178, 38, 78, 62, 127];
   const CB_ALIGNS = ['center','left','center','right','right','right'];
+  const PG = k.prixGasoil || 675;
 
   // En-tête colonnes
-  drawRow(doc, y, 16, CB,
+  drawRow(doc, y, 15, CB,
     ['Item', 'Désignation', 'Unité', 'Fcfa/u htva', 'Quantité', 'Montant HTVA'],
     BLEU, [BLANC,BLANC,BLANC,BLANC,BLANC,BLANC], [true,true,true,true,true,true], CB_ALIGNS);
-  y += 16;
+  y += 15;
 
   // Sous-titre Fourniture
-  doc.rect(45, y, 505, 14).fillColor(GRIS_MOY).fill();
+  doc.rect(45, y, 505, 13).fillColor(GRIS_MOY).fill();
   doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
     .text('Fourniture — Matériaux et consommables', 50, y + 3, { width: 495, lineBreak: false });
-  y += 14;
+  y += 13;
 
   const BG0 = BLANC;
   const BG1 = GRIS_LEGER;
-  const RH = 16;
+  const RH = 15;
+  const PAGE_MAX = doc.page.height - 80;
   let item = 1;
 
   const bRow = (no, des, uni, pu, qty, mt, bg) => {
+    if (y + RH > PAGE_MAX) { doc.addPage(); y = 45; }
     drawRow(doc, y, RH, CB,
       [no ? String(no) : '', des, uni, pu, qty, mt],
       bg, [NOIR,NOIR,NOIR,NOIR,NOIR,NOIR], [false,false,false,false,false,false], CB_ALIGNS);
     y += RH;
   };
 
-  bRow(item++, 'Ciment',                     't',    fmt(k.prixCiment),     fmtD(k.totalCiment),    fmtF(k.coutCiment),     BG0);
-  bRow(item++, 'Transport ciment',            't',    '',                    fmtD(k.totalCiment),    '0',                    BG1);
-  bRow(item++, 'Gravier 5/15',               't',    fmt(k.prixGravier515), fmtD(k.totalGravier515), fmtF(k.coutGravier515), BG0);
-  bRow(item++, 'Gravier 15/25',              't',    fmt(k.prixGravier1525),fmtD(k.totalGravier1525),fmtF(k.coutGravier1525),BG1);
-  bRow(item++, 'Sable Naturel (Centrale à béton)', 'm³', fmt(k.prixSable), fmtD(k.totalSable),      fmtF(k.coutSable),      BG0);
-  bRow(item++, 'Powerflow 6425',             'litre', fmt(k.prixPowerflow), fmt(k.totalPowerflow),   fmtF(k.coutPowerflow),  BG1);
-  bRow(item++, 'Hydrofuge',                  'litre', fmt(k.prixHydrofuge), fmt(k.totalHydrofuge),   fmtF(k.coutHydrofuge),  BG0);
-  bRow(item++, 'Gasoil groupe électrogène',  'litre', '675',                fmt(k.gasoilGroupeL),    fmtF(k.gasoilGroupeL * 675),  BG1);
-  bRow(item++, 'Gasoil pour toupies',        'litre', '675',                fmt(k.gasoilToupieL),    fmtF(k.gasoilToupieL * 675),  BG0);
-  bRow(item++, 'Gasoil pour chargeur',       'litre', '675',                fmt(k.gasoilChargeurL),  fmtF(k.gasoilChargeurL * 675),BG1);
-  bRow(item++, 'Gasoil pour pompe à béton',  'litre', '675',                fmt(k.gasoilPompeL),     fmtF(k.gasoilPompeL * 675),   BG0);
-  bRow(item++, 'Amortissement (TOUPIE)',     'H',     fmt(k.amortToupieRate),   fmtD(k.amortToupieH),    fmtF(k.amortToupieF),    BG1);
-  bRow(item++, 'Amortissement (POMPE A BETON)','H',   fmt(k.amortPompeRate),    fmtD(k.amortPompeH),     fmtF(k.amortPompeF),     BG0);
-  bRow(item++, 'Amortissement (CENTRALE A BETON)','H',fmt(k.amortCentraleRate), fmtD(k.amortCentraleH),  fmtF(k.amortCentraleF),  BG1);
-  bRow(item++, 'Amortissement (GROUPE ELECTROGENE)','H',fmt(k.amortGroupeRate), fmtD(k.amortGroupeH),    fmtF(k.amortGroupeF),    BG0);
-  bRow(item++, 'Amortissement (CHARGEUSE)',  'H',     fmt(k.amortChargeuseRate),fmtD(k.amortChargeuseH), fmtF(k.amortChargeuseF), BG1);
-  bRow(item++, 'Frais restauration & Divers','plat',  fmt(k.prixRepas || 1500), fmt(k.nbRepas || 12),   fmtF(k.fraisRestauration), BG0);
+  bRow(item++, 'Ciment',                       't',    fmt(k.prixCiment),     fmtD(k.totalCiment),     fmtF(k.coutCiment),           BG0);
+  bRow(item++, 'Transport ciment',              't',    '',                    fmtD(k.totalCiment),     '0',                          BG1);
+  bRow(item++, 'Gravier 5/15',                 't',    fmt(k.prixGravier515), fmtD(k.totalGravier515),  fmtF(k.coutGravier515),       BG0);
+  bRow(item++, 'Gravier 15/25',                't',    fmt(k.prixGravier1525),fmtD(k.totalGravier1525), fmtF(k.coutGravier1525),      BG1);
+  bRow(item++, 'Sable Naturel (Centrale béton)','m³',  fmt(k.prixSable),      fmtD(k.totalSable),       fmtF(k.coutSable),            BG0);
+  bRow(item++, 'Powerflow 6425',               'litre', fmt(k.prixPowerflow), fmt(k.totalPowerflow),    fmtF(k.coutPowerflow),        BG1);
+  bRow(item++, 'Hydrofuge',                    'litre', fmt(k.prixHydrofuge), fmt(k.totalHydrofuge),    fmtF(k.coutHydrofuge),        BG0);
+  bRow(item++, 'Gasoil groupe électrogène',    'litre', fmt(PG),              fmt(k.gasoilGroupeL),     fmtF(k.gasoilGroupeL   * PG), BG1);
+  bRow(item++, 'Gasoil pour toupies',          'litre', fmt(PG),              fmt(k.gasoilToupieL),     fmtF(k.gasoilToupieL   * PG), BG0);
+  bRow(item++, 'Gasoil pour chargeur',         'litre', fmt(PG),              fmt(k.gasoilChargeurL),   fmtF(k.gasoilChargeurL * PG), BG1);
+  bRow(item++, 'Gasoil pour pompe à béton',    'litre', fmt(PG),              fmt(k.gasoilPompeL),      fmtF(k.gasoilPompeL    * PG), BG0);
+  bRow(item++, 'Amortissement (TOUPIE)',        'H',    fmt(k.amortToupieRate),    fmtD(k.amortToupieH),    fmtF(k.amortToupieF),    BG1);
+  bRow(item++, 'Amortissement (POMPE A BETON)', 'H',   fmt(k.amortPompeRate),     fmtD(k.amortPompeH),     fmtF(k.amortPompeF),     BG0);
+  bRow(item++, 'Amortissement (CENTRALE BETON)','H',   fmt(k.amortCentraleRate),  fmtD(k.amortCentraleH),  fmtF(k.amortCentraleF),  BG1);
+  bRow(item++, 'Amortissement (GROUPE ELECTROG.)','H', fmt(k.amortGroupeRate),    fmtD(k.amortGroupeH),    fmtF(k.amortGroupeF),    BG0);
+  bRow(item++, 'Amortissement (CHARGEUSE)',     'H',   fmt(k.amortChargeuseRate), fmtD(k.amortChargeuseH), fmtF(k.amortChargeuseF), BG1);
+  bRow(item++, 'Frais restauration & Divers',  'plat', fmt(k.prixRepas || 1500),  fmt(k.nbRepas || 12),    fmtF(k.fraisRestauration), BG0);
 
   // Sous-total approvisionnements + amortissement
   const totalAppro = (k.coutMateriaux || 0) + (k.coutGasoil || 0) + (k.coutAmortissement || 0) + (k.fraisRestauration || 0);
