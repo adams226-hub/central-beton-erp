@@ -612,17 +612,20 @@ const generateFactureProforma = (commande) => {
 
   y += condH + 12;
 
-  // Espace pour signature manuelle côté client
-  doc.moveTo(L + 320, y + 40).lineTo(L + W, y + 40).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
-  doc.fontSize(8).font('Helvetica-Bold').fillColor(NOIR)
-    .text('Signature & Cachet Client', L + 330, y + 5, { width: 165, align: 'center' });
+  // ── Signature COMPTABLE (sans nom) ───────────────────────────────────────
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
+    .text('COMPTABLE', L + 330, y + 5, { width: 165, align: 'center' });
+  doc.moveTo(L + 345, y + 45).lineTo(L + W, y + 45).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
 
-  // ── Pied de page supprimé sur demande ─────────────────────────────────────
+  // ── Pied de page ──────────────────────────────────────────────────────────
   const pH = doc.page.height;
-  // Ligne fine en bas
-  doc.moveTo(L, pH - 30).lineTo(L + W, pH - 30).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
-  doc.fontSize(7).font('Helvetica').fillColor(GRIS)
-    .text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} — AMP BÉTON`, L, pH - 22, { align: 'center', width: W });
+  doc.rect(0, pH - 68, 595, 68).fillColor('#92400e').fill();
+  doc.fontSize(8).font('Helvetica').fillColor('#fed7aa')
+    .text('SARL au capital de 1.000.000 fCFA - 04 BP 536 Ouagadougou 04', 0, pH - 62, { align: 'center', width: 595 })
+    .text('Secteur 33 - Parcelle HL - Section Q - Lot 24', 0, pH - 50, { align: 'center', width: 595 })
+    .text('Tél. : +226 04 42 92 92 ; E-mail: r.bationo@amp-bf.com', 0, pH - 38, { align: 'center', width: 595 })
+    .text('RCCM: BF OUA 2025-B13-08156 ; IFU N°00271525G', 0, pH - 26, { align: 'center', width: 595 })
+    .text('Compte bancaire: BCB N° BF42 BF056 01008 050121287801 04', 0, pH - 14, { align: 'center', width: 595 });
 
   return doc;
 };
