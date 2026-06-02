@@ -93,7 +93,7 @@ const generateDevis = (commande, calculs) => {
 
   doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
     .text('Centrale à Béton — , Ouagadougou, Burkina Faso', 45, 46)
-    .text('Tél : +226 70 XX XX XX  |  Email : contact@ampbeton.bf', 45, 56);
+    .text('Tél : +226 04 42 92 92  |  Email : contact@ampbeton.bf', 45, 56);
 
   doc.fontSize(8.5).font('Helvetica').fillColor(GRIS)
     .text(`Réf : ${c.reference}`, 350, 46, { align: 'right', width: 200 })
