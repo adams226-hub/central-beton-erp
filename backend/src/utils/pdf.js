@@ -279,14 +279,6 @@ const generateDevis = (commande, calculs) => {
   });
   y += dSigH + 6;
 
-  // ── CONDITIONS ─────────────────────────────────────────────────────────
-  doc.moveTo(45, y).lineTo(550, y).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
-  y += 8;
-  doc.fontSize(8).font('Helvetica').fillColor(GRIS)
-    .text('Conditions : Paiement à la livraison. Validité du budget : 30 jours.', 45, y, { width: 300 });
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
-    .text('Signature & Cachet AMP BÉTON', 300, y, { align: 'right', width: 250 });
-
   // ── PIED DE PAGE ───────────────────────────────────────────────────────
   const pageH = doc.page.height;
   doc.rect(0, pageH - 28, 595, 28).fillColor(BLEU_FONCE).fill();
