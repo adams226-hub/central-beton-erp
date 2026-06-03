@@ -253,28 +253,30 @@ const generateDevis = (commande, calculs) => {
     y += 21;
   }
 
-  // Signatures
-  y += 8;
+  // ── Signatures (3 colonnes comme PDF référence) ──────────────────────────
+  y += 10;
   const SIGS_D = [
-    { titre: 'SECRETAIRE RESPONSABLE',   nom: 'NEIMATOU KONATE' },
-    { titre: 'COMPTABLE RESPONSABLE',    nom: 'NACHIA SANOU' },
-    { titre: 'CHEF COMPTABLE',           nom: 'BRUNO ZOUNGRANA' },
-    { titre: 'CHEF DE SITE RESPONSABLE', nom: 'LANDRY SAVADOGO' },
-    { titre: 'PDG',                      nom: 'ROMARIC BATIONO' },
+    { titre: 'Responsable Usine',    nom: 'SAVADOGO WK Landry' },
+    { titre: 'Comptabilité',         nom: 'SANOU Nachia' },
+    { titre: 'Direction Générale',   nom: '' },
   ];
-  const dSigW = 505 / SIGS_D.length;
-  const dSigH = 52;
-  doc.rect(45, y, 505, dSigH).fillColor(GRIS_LEGER).fill();
+  const dSigW = 505 / 3;
+  const dSigH = 55;
+  // Bordure externe du bloc signatures
+  doc.rect(45, y, 505, dSigH).lineWidth(0.8).strokeColor(NOIR).stroke();
   SIGS_D.forEach(({ titre, nom }, i) => {
     const sx = 45 + i * dSigW;
-    if (i > 0) doc.moveTo(sx, y).lineTo(sx, y + dSigH).lineWidth(0.3).strokeColor(GRIS_MOY).stroke();
-    doc.fontSize(7).font('Helvetica-Bold').fillColor(NOIR)
-      .text(titre, sx + 3, y + 5, { width: dSigW - 6, align: 'center', lineBreak: false });
-    doc.moveTo(sx + 6, y + 38).lineTo(sx + dSigW - 6, y + 38).lineWidth(0.4).strokeColor(GRIS_MOY).stroke();
-    doc.fontSize(6.5).font('Helvetica').fillColor(GRIS)
-      .text(nom, sx + 3, y + 41, { width: dSigW - 6, align: 'center', lineBreak: false });
+    // Séparateurs verticaux
+    if (i > 0) doc.moveTo(sx, y).lineTo(sx, y + dSigH).lineWidth(0.5).strokeColor(NOIR).stroke();
+    // Titre du rôle
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
+      .text(titre, sx + 5, y + 6, { width: dSigW - 10, align: 'left', lineBreak: false });
+    // Nom de la personne en bas
+    if (nom) {
+      doc.fontSize(8).font('Helvetica').fillColor(NOIR)
+        .text(nom, sx + 5, y + dSigH - 16, { width: dSigW - 10, align: 'left', lineBreak: false });
+    }
   });
-  doc.rect(45, y, 505, dSigH).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
   y += dSigH + 6;
 
   // ── CONDITIONS ─────────────────────────────────────────────────────────
