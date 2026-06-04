@@ -45,26 +45,29 @@ const Field = ({ label, unit, name, register, error, ...props }) => (
 
 const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
   const isEdit = !!formulation;
-  const REF = 200; // volume de référence en m³
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: formulation ? {
       ...formulation,
-      ciment:    +(formulation.ciment    * REF).toFixed(4),
-      sable:     +(formulation.sable     * REF).toFixed(4),
-      gravier515:+(formulation.gravier515* REF).toFixed(4),
-      gravier1525:+(formulation.gravier1525*REF).toFixed(4),
-      eau:       +(formulation.eau       * REF).toFixed(2),
-      hydrofuge: +(formulation.hydrofuge * REF).toFixed(2),
-      powerflow: +(formulation.powerflow * REF).toFixed(2),
+      // Afficher en kg/m³ (valeur stockée en t/m³ × 1000)
+      ciment:     +(formulation.ciment     * 1000).toFixed(1),
+      gravier515: +(formulation.gravier515 * 1000).toFixed(1),
+      gravier1525:+(formulation.gravier1525* 1000).toFixed(1),
+      // Sable : stocké en m³/m³, affiché en m³/m³
+      sable:      +(formulation.sable).toFixed(4),
+      // sablePoids : déduit du stockage pour affichage helper
+      sablePoids: +(formulation.sable * (formulation.densiteSable ?? 1.5) * 1000).toFixed(1),
+      // Eau, powerflow, hydrofuge : L/m³ sans conversion
+      eau:       formulation.eau,
+      hydrofuge: formulation.hydrofuge,
+      powerflow: formulation.powerflow,
       includePersonnel:    formulation.includePersonnel !== false,
       includeRestauration: formulation.includeRestauration !== false,
       fraisPeage:   formulation.fraisPeage   ?? 0,
       autresFrais:  formulation.autresFrais  ?? 0,
       autresFraisLabel: formulation.autresFraisLabel ?? '',
       densiteSable: formulation.densiteSable ?? 1.5,
-      sablePoids: '',
       motif: '',
     } : {
       prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500,
@@ -74,13 +77,14 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
     },
   });
 
-  // Calcul automatique du volume de sable depuis poids + densité
-  const sablePoids  = watch('sablePoids');
+  // Calcul automatique du volume de sable depuis poids (kg/m³) + densité
+  const sablePoids   = watch('sablePoids');
   const densiteSable = watch('densiteSable');
   useEffect(() => {
     if (sablePoids && densiteSable && densiteSable > 0) {
-      const sableM3Pour200 = (sablePoids * REF) / (1000 * densiteSable);
-      setValue('sable', +sableM3Pour200.toFixed(2), { shouldValidate: false });
+      // sable (m³/m³) = poids_kg / (densité × 1000)
+      const sableM3 = sablePoids / (densiteSable * 1000);
+      setValue('sable', +sableM3.toFixed(4), { shouldValidate: false });
     }
   }, [sablePoids, densiteSable, setValue]);
 
@@ -89,13 +93,16 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
     const data = {
       ...rest,
       motif,
-      ciment:    raw.ciment    / REF,
-      sable:     raw.sable     / REF,
-      gravier515:raw.gravier515/ REF,
-      gravier1525:raw.gravier1525/REF,
-      eau:       raw.eau       / REF,
-      hydrofuge: raw.hydrofuge / REF,
-      powerflow: raw.powerflow / REF,
+      // Convertir kg/m³ → t/m³ pour ciment et gravier
+      ciment:     raw.ciment     / 1000,
+      gravier515: raw.gravier515 / 1000,
+      gravier1525:raw.gravier1525/ 1000,
+      // Sable déjà en m³/m³ (calculé par le helper)
+      sable:      raw.sable,
+      // Eau, powerflow, hydrofuge en L/m³ — pas de conversion
+      eau:       raw.eau,
+      hydrofuge: raw.hydrofuge,
+      powerflow: raw.powerflow,
     };
     try {
       if (isEdit) {
@@ -129,33 +136,38 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
         </div>
       </div>
 
-      {/* Quantités pour 200 m³ */}
+      {/* Dosages par m³ */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Quantités pour 200 m³ de béton</h3>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Dosages par m³ de béton</h3>
         <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 mb-3">
-          Saisissez les quantités nécessaires pour <strong>200 m³</strong>. Le système divise par 200 automatiquement.
+          Saisissez les quantités <strong>par 1 m³ de béton</strong>. Le système calcule automatiquement pour n'importe quel volume commandé.
         </p>
 
-        {/* Helper sable : poids → volume */}
+        {/* Ciment & Graviers en kg/m³ */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+          <Field label="Ciment" unit="kg/m³" name="ciment" register={register} error={errors.ciment} type="number" step="1" placeholder="ex: 530" />
+          <Field label="Gravier 5/15" unit="kg/m³" name="gravier515" register={register} error={errors.gravier515} type="number" step="1" placeholder="ex: 319" />
+          <Field label="Gravier 15/25" unit="kg/m³" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="1" placeholder="ex: 619" />
+        </div>
+
+        {/* Sable : poids → volume auto */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
-          <p className="text-xs font-semibold text-amber-700 mb-2">Calculer le sable depuis le poids (optionnel)</p>
+          <p className="text-xs font-semibold text-amber-700 mb-2">Sable — calculer le volume depuis le poids</p>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Poids sable (kg/m³)" name="sablePoids" register={register} type="number" step="1" placeholder="ex: 702" />
-            <Field label="Densité sable (t/m³)" name="densiteSable" register={register} type="number" step="0.01" placeholder="1.5" />
+            <Field label="Poids sable" unit="kg/m³" name="sablePoids" register={register} type="number" step="1" placeholder="ex: 702" />
+            <Field label="Densité sable" unit="t/m³" name="densiteSable" register={register} type="number" step="0.01" placeholder="1.5" />
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Volume calculé (m³ pour 200 m³)</label>
-              <input {...register('sable')} type="number" step="0.01" className="amp-input text-sm bg-white font-medium text-blue-700" placeholder="auto-calculé" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Volume sable <span className="text-gray-400">(m³/m³ — auto)</span></label>
+              <input {...register('sable')} type="number" step="0.0001" className="amp-input text-sm font-medium text-blue-700" placeholder="auto-calculé" />
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Field label="Ciment" unit="t" name="ciment" register={register} error={errors.ciment} type="number" step="0.1" placeholder="ex: 95" />
-          <Field label="Gravier 5/15" unit="t" name="gravier515" register={register} error={errors.gravier515} type="number" step="0.1" placeholder="ex: 88" />
-          <Field label="Gravier 15/25" unit="t" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="0.1" placeholder="ex: 155" />
-          <Field label="Eau" unit="L" name="eau" register={register} error={errors.eau} type="number" step="1" placeholder="ex: 35000" />
-          <Field label="Hydrofuge" unit="L" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="1" placeholder="ex: 0" />
-          <Field label="Powerflow 6425" unit="L" name="powerflow" register={register} error={errors.powerflow} type="number" step="1" placeholder="ex: 800" />
+        {/* Liquides en L/m³ */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <Field label="Eau" unit="L/m³" name="eau" register={register} error={errors.eau} type="number" step="1" placeholder="ex: 175" />
+          <Field label="Hydrofuge" unit="L/m³" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="0.1" placeholder="ex: 0" />
+          <Field label="Powerflow 6425" unit="L/m³" name="powerflow" register={register} error={errors.powerflow} type="number" step="0.1" placeholder="ex: 5.3" />
         </div>
       </div>
 

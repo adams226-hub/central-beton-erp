@@ -63,15 +63,15 @@ const FormulationCard = ({ formulation, onEdit, onDelete, canEdit, canDelete }) 
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-[10px] text-gray-500 uppercase">Ciment</p>
-            <p className="font-semibold text-gray-700 text-sm">{+(formulation.ciment * 200).toFixed(1)} t/m³</p>
+            <p className="font-semibold text-gray-700 text-sm">{+(formulation.ciment * 1000).toFixed(0)} kg/m³</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-[10px] text-gray-500 uppercase">Powerflow</p>
-            <p className="font-semibold text-gray-700 text-sm">{+(formulation.powerflow * 200).toFixed(0)} L/m³</p>
+            <p className="font-semibold text-gray-700 text-sm">{formulation.powerflow} L/m³</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3 text-center">
             <p className="text-[10px] text-gray-500 uppercase">Eau</p>
-            <p className="font-semibold text-gray-700 text-sm">{+(formulation.eau * 200).toFixed(0)} L/m³</p>
+            <p className="font-semibold text-gray-700 text-sm">{formulation.eau} L/m³</p>
           </div>
         </div>
 
@@ -98,13 +98,13 @@ const FormulationCard = ({ formulation, onEdit, onDelete, canEdit, canDelete }) 
           >
             <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50">
               {[
-                { label: 'Ciment',        value: `${+(formulation.ciment    *200).toFixed(2)} t`,   prix: `${formatMontant(formulation.prixCiment)}/t` },
-                { label: 'Sable',         value: `${+(formulation.sable     *200).toFixed(1)} m³`,  prix: `${formatMontant(formulation.prixSable)}/m³` },
-                { label: 'Gravier 5/15',  value: `${+(formulation.gravier515*200).toFixed(1)} t`,   prix: `${formatMontant(formulation.prixGravier515)}/t` },
-                { label: 'Gravier 15/25', value: `${+(formulation.gravier1525*200).toFixed(1)} t`,  prix: `${formatMontant(formulation.prixGravier1525)}/t` },
-                { label: 'Eau',           value: `${+(formulation.eau       *200).toFixed(0)} L`,   prix: 'Inclus' },
-                { label: 'Hydrofuge',     value: `${+(formulation.hydrofuge *200).toFixed(1)} L`,   prix: `${formatMontant(formulation.prixHydrofuge)}/L` },
-                { label: 'Powerflow 6425',value: `${+(formulation.powerflow *200).toFixed(1)} L`,   prix: `${formatMontant(formulation.prixPowerflow)}/L` },
+                { label: 'Ciment',        value: `${+(formulation.ciment    *1000).toFixed(0)} kg/m³`,  prix: `${formatMontant(formulation.prixCiment)}/t` },
+                { label: 'Sable',         value: `${+(formulation.sable).toFixed(4)} m³/m³`,            prix: `${formatMontant(formulation.prixSable)}/m³` },
+                { label: 'Gravier 5/15',  value: `${+(formulation.gravier515*1000).toFixed(0)} kg/m³`,  prix: `${formatMontant(formulation.prixGravier515)}/t` },
+                { label: 'Gravier 15/25', value: `${+(formulation.gravier1525*1000).toFixed(0)} kg/m³`, prix: `${formatMontant(formulation.prixGravier1525)}/t` },
+                { label: 'Eau',           value: `${formulation.eau} L/m³`,                             prix: 'Inclus' },
+                { label: 'Hydrofuge',     value: `${formulation.hydrofuge} L/m³`,                       prix: `${formatMontant(formulation.prixHydrofuge)}/L` },
+                { label: 'Powerflow 6425',value: `${formulation.powerflow} L/m³`,                       prix: `${formatMontant(formulation.prixPowerflow)}/L` },
               ].map(({ label, value, prix }) => (
                 <div key={label} className="bg-white rounded-lg p-2.5">
                   <p className="text-[10px] text-gray-400 uppercase">{label}</p>
