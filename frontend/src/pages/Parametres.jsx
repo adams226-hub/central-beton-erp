@@ -58,30 +58,30 @@ const Parametres = () => {
 
   const { register, handleSubmit, reset, watch } = useForm({
     defaultValues: {
-      loyerMensuel: 500000,
-      fraisGenerauxMensuels: 150000,
-      volumeRefMensuel: 200,
-      prixGasoil: 675,
-      chargePersonnelM3: 245,
-      fraisRestaurationPlat: 1500,
-      nbRepasRef: 12,
-      impotsTauxPct: 5,
+      loyerMensuel: 500000, fraisGenerauxMensuels: 150000,
+      impotsTauxPct: 5, volumeRefMensuel: 200,
+      prixGasoil: 1205, prixTransportCiment: 2350,
+      margeCiment: 1.05, margeGravier: 1.10, margeSable: 1.10,
+      chargePersonnelM3: 245, fraisRestaurationPlat: 1500, nbRepasRef: 12,
       fraisChauffeurKm: 500,
     },
   });
 
-  // Populate form when data loads
   useEffect(() => {
     if (data) {
       reset({
         loyerMensuel: data.loyerMensuel,
         fraisGenerauxMensuels: data.fraisGenerauxMensuels,
+        impotsTauxPct: Math.round(data.impotsTaux * 100 * 100) / 100,
         volumeRefMensuel: data.volumeRefMensuel,
         prixGasoil: data.prixGasoil,
+        prixTransportCiment: data.prixTransportCiment ?? 2350,
+        margeCiment: data.margeCiment ?? 1.05,
+        margeGravier: data.margeGravier ?? 1.10,
+        margeSable: data.margeSable ?? 1.10,
         chargePersonnelM3: data.chargePersonnelM3,
         fraisRestaurationPlat: data.fraisRestaurationPlat,
         nbRepasRef: data.nbRepasRef,
-        impotsTauxPct: Math.round(data.impotsTaux * 100 * 100) / 100,
         fraisChauffeurKm: data.fraisChauffeurKm,
       });
     }
@@ -90,9 +90,12 @@ const Parametres = () => {
   const mutation = useMutation({
     mutationFn: (formData) => {
       const payload = { ...formData };
-      // Convert % → decimal for impotsTaux
       payload.impotsTaux = parseFloat(payload.impotsTauxPct) / 100;
       delete payload.impotsTauxPct;
+      // S'assurer que les marges sont bien des nombres
+      payload.margeCiment  = parseFloat(payload.margeCiment);
+      payload.margeGravier = parseFloat(payload.margeGravier);
+      payload.margeSable   = parseFloat(payload.margeSable);
       return parametresAPI.update(payload);
     },
     onSuccess: () => {
@@ -167,6 +170,31 @@ const Parametres = () => {
             step="0.01"
             min="0"
           />
+        </div>
+
+        {/* Gasoil & Transport */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <SectionTitle icon={DollarSign} title="Gasoil & Transport" color="text-blue-600" bg="bg-blue-50" />
+          <FieldRow label="Prix gasoil" unit="FCFA/litre" name="prixGasoil" register={register} readOnly={!canEdit} step="1" />
+          <FieldRow label="Prix transport ciment" unit="FCFA/tonne" name="prixTransportCiment" register={register} readOnly={!canEdit} step="1" />
+          <FieldRow label="Frais chauffeur" unit="FCFA/km" name="fraisChauffeurKm" register={register} readOnly={!canEdit} step="1" />
+        </div>
+
+        {/* Marges de pertes */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <SectionTitle icon={Info} title="Marges de pertes matières" color="text-amber-600" bg="bg-amber-50" />
+          <FieldRow label="Marge ciment" unit="Ex: 1.05 = 5% de perte" name="margeCiment" register={register} readOnly={!canEdit} step="0.01" />
+          <FieldRow label="Marge gravier (5/15 et 15/25)" unit="Ex: 1.10 = 10% de perte" name="margeGravier" register={register} readOnly={!canEdit} step="0.01" />
+          <FieldRow label="Marge sable" unit="Ex: 1.10 = 10% de perte" name="margeSable" register={register} readOnly={!canEdit} step="0.01" />
+        </div>
+
+        {/* Personnel & Production */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <SectionTitle icon={Settings} title="Personnel & Production" color="text-green-600" bg="bg-green-50" />
+          <FieldRow label="Charge personnel" unit="FCFA/m³" name="chargePersonnelM3" register={register} readOnly={!canEdit} step="1" />
+          <FieldRow label="Frais restauration / plat" unit="FCFA" name="fraisRestaurationPlat" register={register} readOnly={!canEdit} step="1" />
+          <FieldRow label="Nombre de repas / cycle 200 m³" unit="plats" name="nbRepasRef" register={register} readOnly={!canEdit} step="1" />
+          <FieldRow label="Volume de référence" unit="m³ (cycle standard)" name="volumeRefMensuel" register={register} readOnly={!canEdit} step="1" />
         </div>
 
         {/* Impact info card */}

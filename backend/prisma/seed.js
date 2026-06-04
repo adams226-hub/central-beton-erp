@@ -33,10 +33,10 @@ async function main() {
   // ciment en t/m³  |  gravier en t/m³  |  sable en m³/m³  |  eau en L/m³  |  powerflow/hydrofuge en L/m³
   // Principe : quantités commandées (ex : 95 t ciment × 105500 = 10 022 500 FCFA pour 200 m³)
   const formulations = [
-    // C25/30 : coût = 17 284 779 FCFA / 200 m³ = 86 424 FCFA/m³
-    { nom: 'Béton C25/30 Standard',         typeBeton: 'C25/30', ciment: 0.475,  sable: 0.5,  gravier515: 0.44, gravier1525: 0.775, eau: 175, hydrofuge: 0, powerflow: 4, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 86424, createdById: chefId },
-    { nom: 'Béton C30/37 Haute Résistance', typeBeton: 'C30/37', ciment: 0.400,  sable: 0.48, gravier515: 0.42, gravier1525: 0.78,  eau: 165, hydrofuge: 2, powerflow: 5, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 96000, createdById: chefId },
-    { nom: 'Béton C20/25 Économique',       typeBeton: 'C20/25', ciment: 0.300,  sable: 0.52, gravier515: 0.45, gravier1525: 0.77,  eau: 185, hydrofuge: 0, powerflow: 0, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 74000, createdById: chefId },
+    // gasoilGroupe = 192.5 L pour 200 m³ (référence règle de trois)
+    { nom: 'Béton C25/30 Standard',         typeBeton: 'C25/30', ciment: 0.475,  sable: 0.5,  gravier515: 0.44, gravier1525: 0.775, eau: 175, hydrofuge: 0, powerflow: 4, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 86424, gasoilGroupe: 192.5, gasoilToupie: 600, gasoilChargeur: 180, gasoilPompe: 200, createdById: chefId },
+    { nom: 'Béton C30/37 Haute Résistance', typeBeton: 'C30/37', ciment: 0.400,  sable: 0.48, gravier515: 0.42, gravier1525: 0.78,  eau: 165, hydrofuge: 2, powerflow: 5, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 96000, gasoilGroupe: 192.5, gasoilToupie: 600, gasoilChargeur: 180, gasoilPompe: 200, createdById: chefId },
+    { nom: 'Béton C20/25 Économique',       typeBeton: 'C20/25', ciment: 0.300,  sable: 0.52, gravier515: 0.45, gravier1525: 0.77,  eau: 185, hydrofuge: 0, powerflow: 0, prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500, prixEau: 0, prixHydrofuge: 2750, prixPowerflow: 1750, coutUnitaire: 74000, gasoilGroupe: 192.5, gasoilToupie: 600, gasoilChargeur: 180, gasoilPompe: 200, createdById: chefId },
   ];
 
   for (const f of formulations) {

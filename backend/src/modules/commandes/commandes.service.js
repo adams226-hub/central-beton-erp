@@ -108,8 +108,19 @@ const creerCommande = async (data, userId) => {
   const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params);
   const reference = genererReferenceCommande();
 
-  // Exclure les champs non-Prisma du spread
-  const { fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges, coutCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow, ...calculsDB } = calculs;
+  // Exclure les champs non-Prisma du spread (PDF-only ou charges d'exploitation)
+  const {
+    fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
+    coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
+    gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL, prixGasoil, prixTransportCiment,
+    amortToupieRate, amortToupieH, amortToupieF,
+    amortPompeRate, amortPompeH, amortPompeF,
+    amortCentraleRate, amortCentraleH, amortCentraleF,
+    amortGroupeRate, amortGroupeH, amortGroupeF,
+    amortChargeuseRate, amortChargeuseH, amortChargeuseF,
+    nbRepas, prixRepas,
+    ...calculsDB
+  } = calculs;
 
   const commande = await prisma.commande.create({
     data: {
@@ -161,7 +172,18 @@ const modifierCommande = async (id, data, userId) => {
     });
     if (formulation) {
       const params = await parametresService.get();
-      const { fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges, coutCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow, ...rest } = calculerBesoinsCommande(
+      const {
+        fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
+        coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
+        gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL, prixGasoil, prixTransportCiment,
+        amortToupieRate, amortToupieH, amortToupieF,
+        amortPompeRate, amortPompeH, amortPompeF,
+        amortCentraleRate, amortCentraleH, amortCentraleF,
+        amortGroupeRate, amortGroupeH, amortGroupeF,
+        amortChargeuseRate, amortChargeuseH, amortChargeuseF,
+        nbRepas, prixRepas,
+        ...rest
+      } = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
         data.montantCommande || commande.montantCommande || 0,
