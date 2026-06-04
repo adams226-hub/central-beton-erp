@@ -75,7 +75,7 @@ const genererPDF = asyncHandler(async (req, res) => {
     totalHydrofuge: calculs.totalHydrofuge ?? 0,
     coutHydrofuge: calculs.coutHydrofuge ?? 0,
   };
-  const doc = generateDevis(commande, calculs_final);
+  const doc = generateDevis(commande, k);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="devis-${commande.reference}.pdf"`);
   doc.pipe(res);
