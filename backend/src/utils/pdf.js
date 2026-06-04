@@ -185,7 +185,7 @@ const generateDevis = (commande, calculs) => {
   };
 
   bRow(item++, 'Ciment',                       't',    fmt(k.prixCiment),     fmtD(k.totalCiment),     fmtF(k.coutCiment),           BG0);
-  bRow(item++, 'Transport ciment',              't',    '',                    fmtD(k.totalCiment),     '0',                          BG1);
+  bRow(item++, 'Transport ciment',              't',    fmt(k.prixTransportCiment || 2350), fmtD(k.totalCiment), fmtF(k.coutTransportCiment || 0), BG1);
   bRow(item++, 'Gravier 5/15',                 't',    fmt(k.prixGravier515), fmtD(k.totalGravier515),  fmtF(k.coutGravier515),       BG0);
   bRow(item++, 'Gravier 15/25',                't',    fmt(k.prixGravier1525),fmtD(k.totalGravier1525), fmtF(k.coutGravier1525),      BG1);
   bRow(item++, 'Sable Naturel (Centrale béton)','m³',  fmt(k.prixSable),      fmtD(k.totalSable),       fmtF(k.coutSable),            BG0);
