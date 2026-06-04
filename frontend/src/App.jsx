@@ -10,7 +10,8 @@ import Formulations from './pages/Formulations';
 import Notifications from './pages/Notifications';
 import { PageLoader } from './components/common/LoadingSpinner';
 
-const Production = lazy(() => import('./pages/Production'));
+const Production   = lazy(() => import('./pages/Production'));
+const Utilisateurs = lazy(() => import('./pages/Utilisateurs'));
 const Stocks = lazy(() => import('./pages/Stocks'));
 const Equipements = lazy(() => import('./pages/Equipements'));
 const Livraisons = lazy(() => import('./pages/Livraisons'));
@@ -67,6 +68,7 @@ const App = () => (
           <Route path="previsions" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Previsions /></Suspense></PrivateRoute>} />
           <Route path="alertes" element={<Suspense fallback={<PageLoader />}><Alertes /></Suspense>} />
           <Route path="parametres" element={<Suspense fallback={<PageLoader />}><Parametres /></Suspense>} />
+          <Route path="utilisateurs" element={<PrivateRoute permission="user:read"><Suspense fallback={<PageLoader />}><Utilisateurs /></Suspense></PrivateRoute>} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
