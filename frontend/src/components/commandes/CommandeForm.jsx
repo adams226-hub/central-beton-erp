@@ -43,6 +43,7 @@ const schema = z.object({
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('Montant doit être positif').optional()
   ),
+  remisePct: z.coerce.number().min(0).max(100).default(0),
   observations: z.string().optional(),
 });
 
@@ -76,6 +77,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       dateLivraison: commande.dateLivraison?.split('T')[0],
       distanceLivraison: commande.distanceLivraison || '',
       montantCommande: commande.montantCommande || '',
+      remisePct: commande.remisePct || 0,
       observations: commande.observations || '',
     } : {},
   });
@@ -334,6 +336,30 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             />
             {errors.montantCommande && <p className="text-red-500 text-xs mt-1">{errors.montantCommande.message}</p>}
           </div>
+
+          {/* Remise */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Remise <span className="text-gray-400 font-normal">(%)</span>
+            </label>
+            <input
+              {...register('remisePct')}
+              type="number" min="0" max="100" step="0.5"
+              placeholder="0"
+              className="amp-input"
+            />
+            {watch && (() => {
+              const mt = parseFloat(watch('montantCommande')) || 0;
+              const rp = parseFloat(watch('remisePct')) || 0;
+              if (mt > 0 && rp > 0) {
+                const deduit = Math.round(mt * rp / 100);
+                const net    = mt - deduit;
+                return <p className="text-xs text-green-600 mt-1">Déduction : {deduit.toLocaleString('fr-FR')} FCFA → Montant net : <strong>{net.toLocaleString('fr-FR')} FCFA</strong></p>;
+              }
+              return null;
+            })()}
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Observations</label>
             <textarea {...register('observations')} rows={2} placeholder="Remarques, conditions particulières..." className="amp-input resize-none" />

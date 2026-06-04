@@ -105,7 +105,7 @@ const creerCommande = async (data, userId) => {
   if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
 
   const params = await parametresService.get();
-  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params);
+  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0);
   const reference = genererReferenceCommande();
 
   // Exclure les champs non-Prisma du spread (PDF-only ou charges d'exploitation)
@@ -119,6 +119,8 @@ const creerCommande = async (data, userId) => {
     amortGroupeRate, amortGroupeH, amortGroupeF,
     amortChargeuseRate, amortChargeuseH, amortChargeuseF,
     nbRepas, prixRepas,
+    coutPeage, coutAutres, fraisSupp,
+    montantRemise, montantApresRemise,
     ...calculsDB
   } = calculs;
 
@@ -139,6 +141,7 @@ const creerCommande = async (data, userId) => {
       formulationId: formulation.id,
       createdById: userId,
       montantCommande: data.montantCommande ? parseFloat(data.montantCommande) : null,
+      remisePct: data.remisePct ? parseFloat(data.remisePct) : 0,
       distanceLivraison: data.distanceLivraison ? parseFloat(data.distanceLivraison) : 0,
       ...calculsDB,
     },
@@ -182,13 +185,15 @@ const modifierCommande = async (id, data, userId) => {
         amortGroupeRate, amortGroupeH, amortGroupeF,
         amortChargeuseRate, amortChargeuseH, amortChargeuseF,
         nbRepas, prixRepas,
+        coutPeage, coutAutres, fraisSupp, montantRemise, montantApresRemise,
         ...rest
       } = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
         data.montantCommande || commande.montantCommande || 0,
         data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0),
-        params
+        params,
+        data.remisePct !== undefined ? data.remisePct : (commande.remisePct || 0)
       );
       calculsDB = rest;
     }
@@ -208,6 +213,7 @@ const modifierCommande = async (id, data, userId) => {
       ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
       ...(data.observations !== undefined && { observations: data.observations }),
       ...(data.montantCommande && { montantCommande: parseFloat(data.montantCommande) }),
+      ...(data.remisePct !== undefined && { remisePct: parseFloat(data.remisePct) || 0 }),
       ...(data.distanceLivraison !== undefined && { distanceLivraison: parseFloat(data.distanceLivraison) }),
       ...calculsDB,
     },

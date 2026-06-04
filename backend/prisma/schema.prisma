@@ -241,10 +241,18 @@ model Formulation {
   hGroupe    Float @default(5.0)
   hChargeuse Float @default(5.0)
 
-  gasoilGroupe   Float @default(25)
+  gasoilGroupe   Float @default(192.5)
   gasoilToupie   Float @default(600)
-  gasoilChargeur Float @default(230)
-  gasoilPompe    Float @default(250)
+  gasoilChargeur Float @default(180)
+  gasoilPompe    Float @default(200)
+
+  // Options personnalisables
+  includePersonnel    Boolean @default(true)
+  includeRestauration Boolean @default(true)
+  fraisPeage          Float   @default(0)   // FCFA par voyage (× Nvoyage)
+  autresFrais         Float   @default(0)   // FCFA fixes supplémentaires
+  autresFraisLabel    String?               // Libellé libre
+  densiteSable        Float   @default(1.5) // t/m³ — pour conversion poids→volume
 
   createdById String
   createdBy   User   @relation("FormulateurCreateur", fields: [createdById], references: [id])
@@ -311,6 +319,7 @@ model Commande {
   coutTotal         Float?
   coutUnitaire      Float?
   montantCommande   Float?
+  remisePct         Float?  @default(0)   // % de remise sur le montant de vente
   margePrevisionnelle Float?
   tauxMarge         Float?
 

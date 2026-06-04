@@ -7,7 +7,7 @@ const getZoneInfo = (distance) => {
   return            { zone: 3, heures: 6.0 };
 };
 
-const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0, params = {}) => {
+const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0, params = {}, remisePct = 0) => {
   const v = parseFloat(volume);
   if (!v || v <= 0) throw Object.assign(new Error('Volume doit être supérieur à 0'), { statusCode: 400 });
   const d  = parseFloat(distance) || 0;
@@ -130,23 +130,33 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   }
   const coutAmortissement = amortToupieF + amortPompeF + amortGroupeF + amortChargeuseF + amortCentraleF;
 
-  // ── 4. PERSONNEL & RESTAURATION ─────────────────────────────────────────
-  const coutPersonnel     = v * CHARGE_PERS;
-  const fraisRestauration = Math.ceil(v / VOL_REF) * NB_REPAS * FRAIS_REPAS;
+  // ── 4. PERSONNEL & RESTAURATION (optionnels) ────────────────────────────
+  const coutPersonnel     = (f.includePersonnel !== false) ? v * CHARGE_PERS : 0;
+  const fraisRestauration = (f.includeRestauration !== false) ? Math.ceil(v / VOL_REF) * NB_REPAS * FRAIS_REPAS : 0;
 
-  // ── 5. TOTAUX ────────────────────────────────────────────────────────────
-  const coutTotal    = coutMateriaux + coutGasoil + coutAmortissement + coutPersonnel + fraisRestauration;
+  // ── 5. FRAIS SUPPLÉMENTAIRES (péage, autres) ────────────────────────────
+  const coutPeage     = d > 0 ? (f.fraisPeage || 0) * Nvoyage : 0;
+  const coutAutres    = f.autresFrais || 0;
+  const fraisSupp     = coutPeage + coutAutres;
+
+  // ── 6. TOTAUX ────────────────────────────────────────────────────────────
+  const coutTotal    = coutMateriaux + coutGasoil + coutAmortissement + coutPersonnel + fraisRestauration + fraisSupp;
   const coutUnitaire = coutTotal / v;
 
-  const margePrevisionnelle = montantCommande > 0 ? montantCommande - coutTotal : 0;
-  const tauxMarge = montantCommande > 0 ? (margePrevisionnelle / montantCommande) * 100 : 0;
+  // Remise sur montant de vente
+  const remise             = parseFloat(remisePct) || 0;
+  const montantApresRemise = montantCommande > 0 ? montantCommande * (1 - remise / 100) : 0;
+  const montantRemise      = montantCommande > 0 ? montantCommande * (remise / 100) : 0;
+
+  const margePrevisionnelle = montantApresRemise > 0 ? montantApresRemise - coutTotal : 0;
+  const tauxMarge = montantApresRemise > 0 ? (margePrevisionnelle / montantApresRemise) * 100 : 0;
 
   const fraisLoyer          = LOYER;
   const fraisAutresCharges  = FRAIS_GEN;
-  const fraisImpots         = montantCommande > 0 ? montantCommande * IMPOTS_TAUX : 0;
+  const fraisImpots         = montantApresRemise > 0 ? montantApresRemise * IMPOTS_TAUX : 0;
   const chargesExploitation = fraisLoyer + fraisAutresCharges + fraisImpots;
   const beneficeReel        = margePrevisionnelle - chargesExploitation;
-  const tauxBeneficeReel    = montantCommande > 0 ? (beneficeReel / montantCommande) * 100 : 0;
+  const tauxBeneficeReel    = montantApresRemise > 0 ? (beneficeReel / montantApresRemise) * 100 : 0;
 
   return {
     // Quantités matières
@@ -193,8 +203,17 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
     amortChargeuseF:    Math.round(amortChargeuseF),
 
     // Restauration
-    nbRepas:  Math.ceil(v / VOL_REF) * NB_REPAS,
+    nbRepas:  (f.includeRestauration !== false) ? Math.ceil(v / VOL_REF) * NB_REPAS : 0,
     prixRepas: FRAIS_REPAS,
+
+    // Frais supplémentaires
+    coutPeage:   Math.round(coutPeage),
+    coutAutres:  Math.round(coutAutres),
+    fraisSupp:   Math.round(fraisSupp),
+
+    // Remise
+    montantRemise:      Math.round(montantRemise),
+    montantApresRemise: Math.round(montantApresRemise),
 
     // Totaux DB
     coutMateriaux:      Math.round(coutMateriaux),
