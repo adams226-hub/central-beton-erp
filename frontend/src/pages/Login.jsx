@@ -83,7 +83,6 @@ const Login = () => {
                   <input
                     {...register('email')}
                     type="email"
-                    placeholder="exemple@ampbeton.bf"
                     className="amp-input pl-9"
                     autoComplete="email"
                   />
@@ -98,7 +97,6 @@ const Login = () => {
                   <input
                     {...register('password')}
                     type={showPwd ? 'text' : 'password'}
-                    placeholder="••••••••"
                     className="amp-input pl-9 pr-10"
                     autoComplete="current-password"
                   />
@@ -127,31 +125,6 @@ const Login = () => {
               </button>
             </form>
 
-            {/* Comptes de démonstration */}
-            <div className="mt-6 pt-5 border-t border-gray-100">
-              <p className="text-xs text-gray-400 text-center mb-3">Comptes de démonstration</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {[
-                  { role: 'PDG', email: 'pdg@ampbeton.bf', pwd: 'Admin@2026' },
-                  { role: 'Secrétaire', email: 'secretaire@ampbeton.bf', pwd: 'Secret@2026' },
-                  { role: 'Chef site', email: 'chefsite@ampbeton.bf', pwd: 'Chef@2026' },
-                  { role: 'Comptable', email: 'comptable@ampbeton.bf', pwd: 'Compta@2026' },
-                ].map(({ role, email, pwd }) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => {
-                      setValue('email', email, { shouldValidate: true });
-                      setValue('password', pwd, { shouldValidate: true });
-                    }}
-                    className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg p-2 transition-colors"
-                  >
-                    <p className="font-medium text-gray-700">{role}</p>
-                    <p className="text-gray-400 truncate">{email}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
