@@ -4,6 +4,7 @@ const { envoyerNotifValidation, envoyerEmail } = require('../../utils/email');
 const logger = require('../../config/logger');
 const prisma = require('../../config/prisma');
 const parametresService = require('../parametres/parametres.service');
+const { notifierCommande } = require('../../../whatsapp');
 
 // Ordre du workflow de validation (5 étapes)
 // Secrétaire → Chef de site → Assistant Comptable → Chef Comptable → VALIDÉE (→ PDG notifié)
@@ -105,13 +106,16 @@ const creerCommande = async (data, userId) => {
   if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
 
   const params = await parametresService.get();
-  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0);
+  const cmdOptions = { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais };
+  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0, cmdOptions);
   const reference = genererReferenceCommande();
 
   // Exclure les champs non-Prisma du spread (PDF-only ou charges d'exploitation)
   const {
     fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
     coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
+    coutHydrofuge, coutRetardateur, coutAccelerateur,
+    totalHydrofuge, totalRetardateur, totalAccelerateur,
     gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL, prixGasoil, prixTransportCiment,
     amortToupieRate, amortToupieH, amortToupieF,
     amortPompeRate, amortPompeH, amortPompeF,
@@ -119,7 +123,7 @@ const creerCommande = async (data, userId) => {
     amortGroupeRate, amortGroupeH, amortGroupeF,
     amortChargeuseRate, amortChargeuseH, amortChargeuseF,
     nbRepas, prixRepas,
-    coutPeage, coutAutres, fraisSupp,
+    fraisSupp,
     montantRemise, montantApresRemise,
     ...calculsDB
   } = calculs;
@@ -135,14 +139,22 @@ const creerCommande = async (data, userId) => {
       regimeImposition: data.regimeImposition || null,
       volumeBeton: parseFloat(data.volumeBeton),
       typeBeton: data.typeBeton,
-      dateLivraison: new Date(data.dateLivraison),
+      ...(data.dateLivraison ? { dateLivraison: new Date(data.dateLivraison) } : {}),
       observations: data.observations,
       statut: 'EN_ATTENTE_SECRETAIRE',
       formulationId: formulation.id,
       createdById: userId,
-      montantCommande: data.montantCommande ? parseFloat(data.montantCommande) : null,
+      montantCommande: montantApresRemise > 0 ? montantApresRemise : (data.montantCommande ? parseFloat(data.montantCommande) : null),
       remisePct: data.remisePct ? parseFloat(data.remisePct) : 0,
       distanceLivraison: data.distanceLivraison ? parseFloat(data.distanceLivraison) : 0,
+      includePersonnel:    data.includePersonnel    !== undefined ? data.includePersonnel    : true,
+      includeRestauration: data.includeRestauration !== undefined ? data.includeRestauration : true,
+      fraisPeage:   data.fraisPeage   !== undefined ? parseFloat(data.fraisPeage)   : 0,
+      autresFrais:  data.autresFrais  !== undefined ? parseFloat(data.autresFrais)  : 0,
+      autresFraisLabel: data.autresFraisLabel || null,
+      useRetardateur:  data.useRetardateur  !== undefined ? Boolean(data.useRetardateur)  : false,
+      useAccelerateur: data.useAccelerateur !== undefined ? Boolean(data.useAccelerateur) : false,
+      useHydrofuge:    data.useHydrofuge    !== undefined ? Boolean(data.useHydrofuge)    : false,
       ...calculsDB,
     },
     include: { createdBy: { select: { nom: true, prenom: true } }, formulation: true },
@@ -155,6 +167,10 @@ const creerCommande = async (data, userId) => {
 
   // Notifier les secrétaires
   await notifierRole('SECRETAIRE', commande, 'NOUVELLE_COMMANDE', `Nouvelle commande à valider : ${reference}`);
+
+  // Notifier les utilisateurs internes via WhatsApp
+  console.log('[Debug] Avant notifierCommande, typeof:', typeof notifierCommande);
+  notifierCommande(commande).catch((e) => console.error('[WhatsApp] notif commande echec:', e.message));
 
   logger.info(`Commande créée : ${reference} par ${userId}`);
   return commande;
@@ -169,6 +185,7 @@ const modifierCommande = async (id, data, userId) => {
   }
 
   let calculsDB = {};
+  let montantApresRemiseCalc = 0;
   if (data.volumeBeton || data.formulationId) {
     const formulation = await prisma.formulation.findUnique({
       where: { id: data.formulationId || commande.formulationId },
@@ -178,6 +195,8 @@ const modifierCommande = async (id, data, userId) => {
       const {
         fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
         coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
+        coutHydrofuge, coutRetardateur, coutAccelerateur,
+        totalHydrofuge, totalRetardateur, totalAccelerateur,
         gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL, prixGasoil, prixTransportCiment,
         amortToupieRate, amortToupieH, amortToupieF,
         amortPompeRate, amortPompeH, amortPompeF,
@@ -185,17 +204,19 @@ const modifierCommande = async (id, data, userId) => {
         amortGroupeRate, amortGroupeH, amortGroupeF,
         amortChargeuseRate, amortChargeuseH, amortChargeuseF,
         nbRepas, prixRepas,
-        coutPeage, coutAutres, fraisSupp, montantRemise, montantApresRemise,
+        fraisSupp, montantRemise, montantApresRemise,
         ...rest
       } = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
-        data.montantCommande || commande.montantCommande || 0,
+        data.montantCommande || 0,
         data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0),
         params,
-        data.remisePct !== undefined ? data.remisePct : (commande.remisePct || 0)
+        data.remisePct !== undefined ? data.remisePct : (commande.remisePct || 0),
+        { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais }
       );
       calculsDB = rest;
+      montantApresRemiseCalc = montantApresRemise || 0;
     }
   }
 
@@ -212,9 +233,12 @@ const modifierCommande = async (id, data, userId) => {
       ...(data.typeBeton && { typeBeton: data.typeBeton }),
       ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
       ...(data.observations !== undefined && { observations: data.observations }),
-      ...(data.montantCommande && { montantCommande: parseFloat(data.montantCommande) }),
+      ...(montantApresRemiseCalc > 0 ? { montantCommande: montantApresRemiseCalc } : data.montantCommande ? { montantCommande: parseFloat(data.montantCommande) } : {}),
       ...(data.remisePct !== undefined && { remisePct: parseFloat(data.remisePct) || 0 }),
       ...(data.distanceLivraison !== undefined && { distanceLivraison: parseFloat(data.distanceLivraison) }),
+      ...(data.useRetardateur  !== undefined && { useRetardateur:  Boolean(data.useRetardateur) }),
+      ...(data.useAccelerateur !== undefined && { useAccelerateur: Boolean(data.useAccelerateur) }),
+      ...(data.useHydrofuge    !== undefined && { useHydrofuge:    Boolean(data.useHydrofuge) }),
       ...calculsDB,
     },
   });
