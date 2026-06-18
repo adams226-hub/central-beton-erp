@@ -196,12 +196,29 @@ async function sendWhatsAppMessage(phone, message) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Envoi groupé — contacts depuis Supabase
+//  Envoi groupé — contacts depuis Supabase (avec retry si WA pas encore prêt)
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierRoles(roles, message) {
+  const MAX_WAIT_MS = 15000;
+  const POLL_MS     = 2000;
+  let waited = 0;
+
+  while (!isWhatsAppReady && waited < MAX_WAIT_MS) {
+    await new Promise(r => setTimeout(r, POLL_MS));
+    waited += POLL_MS;
+  }
+
+  if (!isWhatsAppReady) {
+    console.warn('[WhatsApp] notifierRoles — non connecté après 15s, abandon');
+    return;
+  }
+
   try {
     const contacts = await prisma.whatsAppContact.findMany({ where: { actif: true } });
-    if (contacts.length === 0) return;
+    if (contacts.length === 0) {
+      console.warn('[WhatsApp] Aucun contact actif dans whatsapp_contacts');
+      return;
+    }
     await Promise.all(contacts.map(c => sendWhatsAppMessage(c.telephone, message)));
   } catch (e) {
     console.error('[WhatsApp] notifierRoles erreur:', e.message);
@@ -261,6 +278,14 @@ async function notifierLivraison(livraison, commande, statut) {
   }
   if (msg) return notifierRoles(['PDG', 'CHEF_DE_SITE'], msg);
 }
+
+// ─── Watchdog — reconnexion automatique toutes les 5 min si déconnecté ───────
+setInterval(() => {
+  if (!isWhatsAppReady && !sock) {
+    console.log('🔄 [WhatsApp] Watchdog — reconnexion automatique...');
+    initializeWhatsApp().catch(e => console.error('[WhatsApp] Watchdog erreur:', e.message));
+  }
+}, 5 * 60 * 1000);
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const isWhatsAppConnected = () => isWhatsAppReady;

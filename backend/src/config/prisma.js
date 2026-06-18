@@ -1,8 +1,17 @@
 const { PrismaClient } = require('@prisma/client');
 
+const base = process.env.DATABASE_URL || '';
+// pgbouncer=true : indique à Prisma de ne pas utiliser les prepared statements
+// (obligatoire avec Supabase PgBouncer en Transaction mode)
+// connection_limit=5 : le pooler Supabase gère déjà les vraies connexions DB
+let poolUrl = base;
+if (!poolUrl.includes('pgbouncer=true'))    poolUrl += (poolUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+if (!poolUrl.includes('connection_limit'))  poolUrl += '&connection_limit=2';
+if (!poolUrl.includes('pool_timeout'))      poolUrl += '&pool_timeout=20';
+
 const prisma = new PrismaClient({
   datasources: {
-    db: { url: process.env.DATABASE_URL },
+    db: { url: poolUrl },
   },
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
 });
