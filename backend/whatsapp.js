@@ -11,16 +11,18 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  BufferJSON,
-  initAuthCreds,
+  useMultiFileAuthState,
 } = require('@whiskeysockets/baileys');
 
-// ─── Prisma (Supabase) ────────────────────────────────────────────────────────
+// ─── Prisma (Supabase) — uniquement pour les contacts, pas la session ─────────
 const prisma = require('./src/config/prisma');
 
 // ─── Telegram config ──────────────────────────────────────────────────────────
 const BOT_TOKEN = process.env.AMP_BETON;
 const CHAT_ID   = process.env.CHATID;
+
+// ─── Stockage session WhatsApp en fichiers locaux ────────────────────────────
+const AUTH_DIR = path.join(__dirname, 'whatsapp-auth');
 
 if (BOT_TOKEN && CHAT_ID) {
   console.log('✅ Telegram AMP_BETON configuré');
@@ -32,62 +34,6 @@ if (BOT_TOKEN && CHAT_ID) {
 let sock            = null;
 let isWhatsAppReady = false;
 let qrPendingTimer  = null;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Auth state stocké dans Supabase via Prisma
-// ═══════════════════════════════════════════════════════════════════════════════
-async function usePrismaAuthState(operatorId) {
-  const toJSON   = (d) => JSON.parse(JSON.stringify(d, BufferJSON?.replacer));
-  const fromJSON = (r) => r ? JSON.parse(JSON.stringify(r), BufferJSON?.reviver) : null;
-
-  const writeData = async (data, key) => {
-    await prisma.whatsAppAuthState.upsert({
-      where:  { operatorId_dataKey: { operatorId, dataKey: key } },
-      create: { operatorId, dataKey: key, data: toJSON(data) },
-      update: { data: toJSON(data) },
-    });
-  };
-
-  const readData = async (key) => {
-    const item = await prisma.whatsAppAuthState.findUnique({
-      where: { operatorId_dataKey: { operatorId, dataKey: key } },
-    });
-    return item?.data ? fromJSON(item.data) : null;
-  };
-
-  const removeData = async (key) => {
-    await prisma.whatsAppAuthState.deleteMany({ where: { operatorId, dataKey: key } });
-  };
-
-  const credsRaw = await readData('creds');
-  const creds    = credsRaw || initAuthCreds();
-
-  const state = {
-    creds,
-    keys: {
-      get: async (type, ids) => {
-        const result = {};
-        for (const id of ids) {
-          result[id] = await readData(`keys.${type}.${id}`);
-        }
-        return result;
-      },
-      set: async (data) => {
-        const tasks = [];
-        for (const cat of Object.keys(data)) {
-          for (const id of Object.keys(data[cat])) {
-            const val = data[cat][id];
-            tasks.push(val ? writeData(val, `keys.${cat}.${id}`) : removeData(`keys.${cat}.${id}`));
-          }
-        }
-        await Promise.all(tasks);
-      },
-    },
-  };
-
-  const saveCreds = async () => writeData(state.creds, 'creds');
-  return { state, saveCreds };
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  QR Code → Telegram (multipart via https natif, retry x3)
@@ -130,7 +76,6 @@ async function sendQRToTelegram(qrData) {
     const imgBuffer = await QRCode.toBuffer(qrData, { width: 400, margin: 2, type: 'png' });
     const caption   = '📱 *AMP BETON — WhatsApp QR Code*\n\nScannez pour connecter WhatsApp\\.\n_Expire dans quelques minutes\\._';
 
-    // 3 tentatives avec back-off
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         await _telegramSendPhoto(BOT_TOKEN, CHAT_ID, imgBuffer, caption);
@@ -148,14 +93,16 @@ async function sendQRToTelegram(qrData) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Initialisation WhatsApp
+//  Initialisation WhatsApp (session stockée en fichiers locaux)
 // ═══════════════════════════════════════════════════════════════════════════════
-async function initializeWhatsApp(operatorId = 'amp-beton-main') {
+async function initializeWhatsApp() {
   try {
     console.log('\n════════════════════════════════════════════════');
-    console.log('🚀 [WhatsApp] Baileys + Supabase (Prisma)');
-    console.log(`   operatorId : ${operatorId}`);
+    console.log('🚀 [WhatsApp] Baileys + Auth fichiers locaux');
+    console.log(`   Auth dir : ${AUTH_DIR}`);
     console.log('════════════════════════════════════════════════\n');
+
+    if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
 
     let version;
     try {
@@ -165,7 +112,7 @@ async function initializeWhatsApp(operatorId = 'amp-beton-main') {
       version = [2, 3000, 1015901307];
     }
 
-    const { state, saveCreds } = await usePrismaAuthState(operatorId);
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
     const silent = {
       level: 'silent',
@@ -202,7 +149,7 @@ async function initializeWhatsApp(operatorId = 'amp-beton-main') {
 
       if (connection === 'open') {
         if (qrPendingTimer) { clearTimeout(qrPendingTimer); qrPendingTimer = null; }
-        console.log('✅ [WhatsApp] Connecté — session Supabase sauvegardée');
+        console.log('✅ [WhatsApp] Connecté — session fichiers sauvegardée');
         isWhatsAppReady = true;
       }
 
@@ -211,9 +158,9 @@ async function initializeWhatsApp(operatorId = 'amp-beton-main') {
         const code = lastDisconnect?.error?.output?.statusCode;
         if (code !== DisconnectReason.loggedOut) {
           console.log('🔄 [WhatsApp] Reconnexion dans 5s...');
-          setTimeout(() => initializeWhatsApp(operatorId), 5000);
+          setTimeout(() => initializeWhatsApp(), 5000);
         } else {
-          await prisma.whatsAppAuthState.deleteMany({ where: { operatorId } });
+          if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
           sock = null;
         }
       }
@@ -249,7 +196,7 @@ async function sendWhatsAppMessage(phone, message) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Envoi groupé vers les utilisateurs internes ayant un rôle donné
+//  Envoi groupé — contacts depuis Supabase
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierRoles(roles, message) {
   try {
@@ -262,7 +209,7 @@ async function notifierRoles(roles, message) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Notifications métier → utilisateurs internes
+//  Notifications métier
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierCommande(commande) {
   const msg = [
@@ -322,12 +269,13 @@ const getWhatsAppStatus = () => ({
   isReady:  isWhatsAppReady,
   client:   sock ? 'initialized' : 'not initialized',
   library:  'baileys',
-  storage:  'supabase/prisma',
+  storage:  'local-files',
+  authDir:  AUTH_DIR,
 });
 
-async function resetWhatsAppSession(operatorId = 'amp-beton-main') {
+async function resetWhatsAppSession() {
   if (sock) { try { await sock.logout(); } catch (_) {} sock = null; }
-  await prisma.whatsAppAuthState.deleteMany({ where: { operatorId } });
+  if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
   isWhatsAppReady = false;
   return { success: true, message: 'Session réinitialisée. Redémarrez pour re-scanner.' };
 }
