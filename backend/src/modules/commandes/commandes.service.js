@@ -169,8 +169,7 @@ const creerCommande = async (data, userId) => {
   await notifierRole('SECRETAIRE', commande, 'NOUVELLE_COMMANDE', `Nouvelle commande à valider : ${reference}`);
 
   // Notifier les utilisateurs internes via WhatsApp
-  console.log('[Debug] Avant notifierCommande, typeof:', typeof notifierCommande);
-  notifierCommande(commande).catch((e) => console.error('[WhatsApp] notif commande echec:', e.message));
+  notifierCommande(commande).catch((e) => logger.warn(`[WhatsApp] notif commande echec: ${e.message}`));
 
   logger.info(`Commande créée : ${reference} par ${userId}`);
   return commande;

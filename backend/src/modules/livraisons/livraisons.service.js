@@ -1,12 +1,12 @@
 const { emitToAll, emitToUser } = require('../../config/socket');
 const prisma = require('../../config/prisma');
+const { notifierLivraison } = require('../../../whatsapp');
 
 const genRef = () => `LIV-${Date.now().toString().slice(-8)}`;
 
 const lister = async (filters = {}) => {
   const where = {};
   if (filters.statut) where.statut = filters.statut;
-  if (filters.productionId) where.productionId = filters.productionId;
   if (filters.commandeId) where.commandeId = filters.commandeId;
   if (filters.search) {
     where.OR = [
@@ -25,7 +25,6 @@ const lister = async (filters = {}) => {
     prisma.livraison.findMany({
       where,
       include: {
-        production: { select: { reference: true } },
         commande: { select: { reference: true, nomClient: true, adresseChantier: true } },
         toupie: { select: { nom: true, code: true } },
       },
@@ -55,7 +54,6 @@ const getOne = async (id) => {
   const l = await prisma.livraison.findUnique({
     where: { id },
     include: {
-      production: true,
       commande: { select: { reference: true, nomClient: true, adresseChantier: true } },
       toupie: true,
     },
@@ -71,26 +69,12 @@ const planifier = async (data, userId) => {
   const adresse = data.adresseChantier || data.adresseLivraison;
   const observations = data.observations || data.notes;
 
-  // Charger la commande pour récupérer volume + adresse + productionId
-  const commande = await prisma.commande.findUnique({
-    where: { id: data.commandeId },
-    include: {
-      productions: {
-        where: { statut: { in: ['EN_COURS', 'TERMINE'] } },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      },
-    },
-  });
+  const commande = await prisma.commande.findUnique({ where: { id: data.commandeId } });
   if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
-
-  const productionId = data.productionId || commande.productions[0]?.id;
-  if (!productionId) throw Object.assign(new Error('Aucune production en cours pour cette commande — démarrez la production d\'abord'), { statusCode: 400 });
 
   return prisma.livraison.create({
     data: {
       reference: genRef(),
-      productionId,
       commandeId: data.commandeId,
       toupieId: toupieId || undefined,
       chauffeur: data.chauffeur || null,
@@ -104,20 +88,19 @@ const planifier = async (data, userId) => {
 };
 
 const changerStatut = async (id, statut, userId) => {
-  const livraison = await prisma.livraison.findUnique({ where: { id } });
+  const livraison = await prisma.livraison.findUnique({
+    where: { id },
+    include: { commande: { select: { reference: true, telephone: true } } },
+  });
   const updateData = { statut };
 
-  if (statut === 'EN_ROUTE') updateData.heureDepart = new Date();
-  if (statut === 'LIVREE') updateData.heureArrivee = new Date();
-  if (statut === 'EN_ROUTE' && livraison.toupieId) {
-    await prisma.equipement.update({ where: { id: livraison.toupieId }, data: { statut: 'EN_SERVICE' } });
-  }
-  if (statut === 'LIVREE' && livraison.toupieId) {
+  if (statut === 'ANNULEE' && livraison.toupieId) {
     await prisma.equipement.update({ where: { id: livraison.toupieId }, data: { statut: 'DISPONIBLE' } });
   }
 
   const updated = await prisma.livraison.update({ where: { id }, data: updateData });
   emitToAll('livraison:statut_change', { livraisonId: id, statut, reference: livraison.reference });
+
   return updated;
 };
 
@@ -166,6 +149,9 @@ const confirmerLivraison = async (id, data, userId) => {
     type: 'COMMANDE_LIVREE',
     message: `Livraison confirmée : ${data.volumeReel} m³ livrés — Commande ${liv.commande.reference}`,
   });
+
+  // Notifier les utilisateurs internes via WhatsApp
+  notifierLivraison(updated, liv.commande, 'LIVREE').catch(() => {});
 
   return updated;
 };

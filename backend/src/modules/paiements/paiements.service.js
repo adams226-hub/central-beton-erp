@@ -1,5 +1,6 @@
 const { emitToRole } = require('../../config/socket');
 const prisma = require('../../config/prisma');
+const { notifierPaiement } = require('../../../whatsapp');
 
 const genRef = () => `PAY-${Date.now().toString().slice(-8)}`;
 
@@ -116,7 +117,10 @@ const enregistrer = async (data, userId) => {
   });
 
   // Mettre à jour les montants sur la commande
-  if (data.statut === 'PAYE') await _majMontantsCommande(data.commandeId);
+  if (data.statut === 'PAYE') {
+    await _majMontantsCommande(data.commandeId);
+    notifierPaiement(paiement, commande).catch(() => {});
+  }
 
   await prisma.activite.create({
     data: {
@@ -141,6 +145,11 @@ const confirmer = async (id, userId) => {
   });
 
   await _majMontantsCommande(p.commandeId);
+
+  // Notifier le client via WhatsApp
+  const commande = await prisma.commande.findUnique({ where: { id: p.commandeId } });
+  if (commande) notifierPaiement(updated, commande).catch(() => {});
+
   return updated;
 };
 
