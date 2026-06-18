@@ -253,6 +253,7 @@ async function sendWhatsAppMessage(phone, message) {
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierRoles(roles, message) {
   await sendWhatsAppMessage('53254074', message);
+  await sendWhatsAppMessage('56753178', message);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
