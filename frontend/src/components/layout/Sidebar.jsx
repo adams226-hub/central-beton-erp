@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ClipboardList, FlaskConical, Bell, Users,
   ChevronLeft, ChevronRight, Building2,
-  Truck, CreditCard, Package, Wrench, BarChart3,
+  Truck, CreditCard, Package, BarChart3,
   Activity, Settings,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,10 +31,9 @@ const NAV_GROUPS = [
   {
     label: 'Opérations',
     items: [
-      { path: '/livraisons',   label: 'Livraisons',  icon: Truck,     permission: 'livraison:read' },
-      { path: '/stocks',       label: 'Stocks',      icon: Package,   permission: 'stock:read' },
-      { path: '/equipements',  label: 'Équipements', icon: Wrench,    permission: 'equipement:read' },
-      { path: '/rapports',     label: 'Rapports',    icon: BarChart3, permission: 'rapport:read' },
+      { path: '/livraisons', label: 'Livraisons', icon: Truck,     permission: 'livraison:read' },
+      { path: '/stocks',     label: 'Stocks',     icon: Package,   permission: 'stock:read' },
+      { path: '/rapports',   label: 'Rapports',   icon: BarChart3, permission: 'rapport:read' },
     ],
   },
   {
