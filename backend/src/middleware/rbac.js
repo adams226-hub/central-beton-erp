@@ -24,7 +24,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   CHEF_DE_SITE: [
-    'commande:read', 'commande:validate', 'commande:reject',
+    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject',
     'formulation:read', 'formulation:create', 'formulation:update',
     'notification:read',
     'stock:read', 'stock:write',

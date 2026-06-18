@@ -33,10 +33,10 @@ const supprimer = asyncHandler(async (req, res) => {
 });
 
 const calculer = asyncHandler(async (req, res) => {
-  const { volume, formulationId, montantCommande, distanceLivraison } = req.body;
+  const { volume, formulationId, montantCommande, distanceLivraison, remisePct, options } = req.body;
   const formulation = await prisma.formulation.findUnique({ where: { id: formulationId } });
   if (!formulation) return res.status(404).json({ success: false, message: 'Formulation introuvable' });
-  const calculs = await service.calculer({ volume, formulation, montantCommande, distanceLivraison });
+  const calculs = await service.calculer({ volume, formulation, montantCommande, distanceLivraison, remisePct, options });
   res.json({ success: true, data: calculs });
 });
 

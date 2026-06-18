@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,9 +11,9 @@ import { formatMontant } from '../../utils/formatters';
 
 // ─── Bordereau de prix AMP BETON ─────────────────────────────────────────────
 const TARIF_BORDEREAU = {
-  ZONE1: { C5: 65000, C15: 75000, C20: 90000, C25: 97000, C30: 107000, C35: 118000, C40: 125000 },
-  ZONE2: { C5: 74000, C15: 85500, C20: 100000, C25: 105000, C30: 116000, C35: 127000, C40: 133000 },
-  ZONE3: { C5: 77000, C15: 90000, C20: 106000, C25: 113000, C30: 123000, C35: 134000, C40: 140000 },
+  ZONE1: { C5: 66000, C15: 76000, C20: 91000, C25: 98000, C30: 108000, C35: 119000, C40: 126000 },
+  ZONE2: { C5: 75000, C15: 86500, C20: 101000, C25: 106000, C30: 117000, C35: 128000, C40: 134000 },
+  ZONE3: { C5: 78000, C15: 91000, C20: 107000, C25: 114000, C30: 124000, C35: 135000, C40: 141000 },
 };
 const ZONES = [
   { id: 'ZONE1', label: 'Zone 1', desc: '1 – 50 km' },
@@ -37,13 +37,21 @@ const schema = z.object({
   regimeImposition: z.string().optional(),
   volumeBeton: z.coerce.number().positive('Volume doit être positif'),
   typeBeton: z.string().min(1, 'Type béton requis'),
-  dateLivraison: z.string().min(1, 'Date requise'),
+  dateLivraison: z.string().optional(),
   distanceLivraison: z.coerce.number().min(0).optional(),
   montantCommande: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
     z.number().positive('Montant doit être positif').optional()
   ),
   remisePct: z.coerce.number().min(0).max(100).default(0),
+  includePersonnel:    z.boolean().default(true),
+  includeRestauration: z.boolean().default(true),
+  fraisPeage:   z.coerce.number().min(0).default(0),
+  autresFrais:  z.coerce.number().min(0).default(0),
+  autresFraisLabel: z.string().optional(),
+  useRetardateur:  z.boolean().default(false),
+  useAccelerateur: z.boolean().default(false),
+  useHydrofuge:    z.boolean().default(false),
   observations: z.string().optional(),
 });
 
@@ -55,7 +63,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [formulationId, setFormulationId] = useState(commande?.formulationId || '');
   const [zoneManuelle, setZoneManuelle] = useState(null); // null = auto-détectée depuis distance
-  const montantManualRef = useRef(false); // l'utilisateur a-t-il saisi le montant manuellement ?
+  const [customPrixM3, setCustomPrixM3] = useState(null); // null = utiliser le bordereau
 
   const { data: formulationsData } = useQuery({
     queryKey: ['formulations'],
@@ -78,11 +86,27 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       distanceLivraison: commande.distanceLivraison || '',
       montantCommande: commande.montantCommande || '',
       remisePct: commande.remisePct || 0,
+      includePersonnel:    commande.includePersonnel !== false,
+      includeRestauration: commande.includeRestauration !== false,
+      fraisPeage:   commande.fraisPeage   ?? 0,
+      autresFrais:  commande.autresFrais  ?? 0,
+      autresFraisLabel: commande.autresFraisLabel ?? '',
+      useRetardateur:  commande.useRetardateur  ?? false,
+      useAccelerateur: commande.useAccelerateur ?? false,
+      useHydrofuge:    commande.useHydrofuge    ?? false,
       observations: commande.observations || '',
-    } : {},
+    } : {
+      includePersonnel: false,
+      includeRestauration: false,
+      fraisPeage: 0,
+      autresFrais: 0,
+      useRetardateur: false,
+      useAccelerateur: false,
+      useHydrofuge: false,
+    },
   });
 
-  const [volume, typeBeton, montantCommande, distanceLivraison] = watch(['volumeBeton', 'typeBeton', 'montantCommande', 'distanceLivraison']);
+  const [volume, typeBeton, montantCommande, distanceLivraison, includePersonnel, includeRestauration, fraisPeage, autresFrais, useRetardateur, useAccelerateur, useHydrofuge] = watch(['volumeBeton', 'typeBeton', 'montantCommande', 'distanceLivraison', 'includePersonnel', 'includeRestauration', 'fraisPeage', 'autresFrais', 'useRetardateur', 'useAccelerateur', 'useHydrofuge']);
 
   // Auto-sélection de la formulation quand le type béton change
   useEffect(() => {
@@ -91,6 +115,9 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       if (found) {
         setFormulationId(found.id);
         setOverrides({});
+        setValue('useRetardateur',  (found.retardateur  || 0) > 0, { shouldValidate: false });
+        setValue('useAccelerateur', (found.accelerateur || 0) > 0, { shouldValidate: false });
+        setValue('useHydrofuge',    (found.hydrofuge    || 0) > 0, { shouldValidate: false });
       }
     }
   }, [typeBeton, formulationsData]);
@@ -106,6 +133,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
           formulationId,
           montantCommande: montantCommande || 0,
           distanceLivraison: distanceLivraison || 0,
+          options: { includePersonnel, includeRestauration, fraisPeage: fraisPeage || 0, autresFrais: autresFrais || 0 },
         });
         setCalculs(res.data.data);
         setOverrides({});
@@ -116,25 +144,38 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [volume, formulationId, montantCommande, distanceLivraison]);
+  }, [volume, formulationId, montantCommande, distanceLivraison, includePersonnel, includeRestauration, fraisPeage, autresFrais]);
 
   // ─── Calcul zone + tarif bordereau ──────────────────────────────────────
   const zoneAuto = getZoneAuto(distanceLivraison);
   const zone = zoneManuelle || zoneAuto;
   const prixUnitaireBordereau = zone && typeBeton ? (TARIF_BORDEREAU[zone]?.[typeBeton] ?? null) : null;
-  const montantSuggere = prixUnitaireBordereau && volume ? Math.round(prixUnitaireBordereau * parseFloat(volume)) : null;
+  const montantBetonBase = prixUnitaireBordereau && volume ? Math.round(prixUnitaireBordereau * parseFloat(volume)) : null;
+  const adjuvantCost = ((useRetardateur ? 1 : 0) + (useAccelerateur ? 1 : 0)) * 10000 * (parseFloat(volume) || 0);
+  const montantSuggere = montantBetonBase !== null ? montantBetonBase + adjuvantCost : (adjuvantCost > 0 ? adjuvantCost : null);
 
   // Quand la distance change → réinitialiser la zone manuelle
   useEffect(() => {
     setZoneManuelle(null);
   }, [distanceLivraison]);
 
-  // Auto-remplir montantCommande depuis le bordereau (sauf si modifié manuellement)
+  // Quand type béton ou zone change → réinitialiser le prix manuel
   useEffect(() => {
-    if (montantSuggere && !montantManualRef.current) {
-      setValue('montantCommande', montantSuggere, { shouldValidate: false });
+    setCustomPrixM3(null);
+  }, [typeBeton, zone]);
+
+  // Prix effectif : manuel si saisi, sinon bordereau
+  const prixEffectifM3 = customPrixM3 ?? prixUnitaireBordereau;
+  const montantEffectif = prixEffectifM3 && volume
+    ? Math.round(prixEffectifM3 * parseFloat(volume)) + adjuvantCost
+    : montantSuggere;
+
+  // Synchroniser montantCommande — seulement si l'utilisateur n'a pas saisi manuellement
+  useEffect(() => {
+    if (customPrixM3 === null) {
+      setValue('montantCommande', montantSuggere ?? undefined, { shouldValidate: false });
     }
-  }, [montantSuggere, setValue]);
+  }, [montantSuggere, customPrixM3, setValue]);
 
   const valeur = (key) => overrides[key] !== undefined ? overrides[key] : (calculs?.[key] ?? '');
   const setOverride = (key, val) => setOverrides((prev) => ({ ...prev, [key]: val === '' ? undefined : Number(val) }));
@@ -195,30 +236,30 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nom du client *</label>
-            <input {...register('nomClient')} placeholder="Ex : NOVA LUX SARL" className="amp-input" />
+            <input {...register('nomClient')} className="amp-input" />
             {errors.nomClient && <p className="text-red-500 text-xs mt-1">{errors.nomClient.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-            <input {...register('telephone')} placeholder="+226 70 XX XX XX" className="amp-input" />
+            <input {...register('telephone')} className="amp-input" />
             {errors.telephone && <p className="text-red-500 text-xs mt-1">{errors.telephone.message}</p>}
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Adresse du chantier *</label>
-            <input {...register('adresseChantier')} placeholder="Ex : Kanis Soleil, Secteur 30, Ouagadougou" className="amp-input" />
+            <input {...register('adresseChantier')} className="amp-input" />
             {errors.adresseChantier && <p className="text-red-500 text-xs mt-1">{errors.adresseChantier.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">IFU <span className="text-gray-400 font-normal">(optionnel)</span></label>
-            <input {...register('ifu')} placeholder="Ex : 00271525G" className="amp-input" />
+            <input {...register('ifu')} className="amp-input" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">RCCM <span className="text-gray-400 font-normal">(optionnel)</span></label>
-            <input {...register('rccm')} placeholder="Ex : BF OUA 2025-B13-XXXXX" className="amp-input" />
+            <input {...register('rccm')} className="amp-input" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Régime d'imposition <span className="text-gray-400 font-normal">(optionnel)</span></label>
-            <input {...register('regimeImposition')} placeholder="Ex : Réel Normal d'Imposition" className="amp-input" />
+            <input {...register('regimeImposition')} className="amp-input" />
           </div>
         </div>
       </div>
@@ -229,7 +270,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Volume (m³) *</label>
-            <input {...register('volumeBeton')} type="number" step="0.5" min="1" placeholder="200" className="amp-input" />
+            <input {...register('volumeBeton')} type="number" step="0.5" min="1" className="amp-input" />
             {errors.volumeBeton && <p className="text-red-500 text-xs mt-1">{errors.volumeBeton.message}</p>}
           </div>
           <div>
@@ -243,7 +284,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             {errors.typeBeton && <p className="text-red-500 text-xs mt-1">{errors.typeBeton.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date de livraison *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date de livraison</label>
             <input {...register('dateLivraison')} type="date" min={new Date().toISOString().split('T')[0]} className="amp-input" />
             {errors.dateLivraison && <p className="text-red-500 text-xs mt-1">{errors.dateLivraison.message}</p>}
           </div>
@@ -254,7 +295,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             </label>
             <div className="flex items-start gap-3 flex-wrap">
               <div className="flex-1 min-w-[120px]">
-                <input {...register('distanceLivraison')} type="number" step="1" min="0" placeholder="Ex : 35" className="amp-input" />
+                <input {...register('distanceLivraison')} type="number" step="1" min="0" className="amp-input" />
                 {errors.distanceLivraison && <p className="text-red-500 text-xs mt-1">{errors.distanceLivraison.message}</p>}
               </div>
               {/* Sélecteur de zone */}
@@ -289,7 +330,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             </div>
           </div>
 
-          {/* Prix bordereau affiché */}
+          {/* Prix bordereau — modifiable */}
           {prixUnitaireBordereau && (
             <div className="md:col-span-3">
               <motion.div
@@ -298,19 +339,39 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                 className="flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3"
               >
                 <Tag size={14} className="text-blue-600 flex-shrink-0" />
-                <div className="flex flex-wrap gap-4 flex-1">
+                <div className="flex flex-wrap gap-4 flex-1 items-end">
                   <div>
                     <p className="text-[10px] text-blue-500 uppercase font-semibold">Zone tarifaire</p>
                     <p className="text-sm font-bold text-blue-800">{ZONES.find(z => z.id === zone)?.label} — {ZONES.find(z => z.id === zone)?.desc}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-blue-500 uppercase font-semibold">Prix unitaire {typeBeton}</p>
-                    <p className="text-sm font-bold text-blue-800">{formatMontant(prixUnitaireBordereau)} / m³</p>
+                    <p className="text-[10px] text-blue-500 uppercase font-semibold">
+                      Prix / m³ {typeBeton}
+                      {customPrixM3 !== null && (
+                        <button type="button" onClick={() => { setCustomPrixM3(null); setValue('montantCommande', montantSuggere ?? undefined, { shouldValidate: false }); }} className="ml-2 text-blue-400 hover:text-blue-600 underline font-normal">
+                          reset
+                        </button>
+                      )}
+                    </p>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={customPrixM3 ?? prixUnitaireBordereau}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || null;
+                        setCustomPrixM3(val);
+                        if (val && volume) {
+                          setValue('montantCommande', Math.round(val * parseFloat(volume)) + adjuvantCost, { shouldValidate: false });
+                        }
+                      }}
+                      className={`w-36 amp-input text-sm font-bold ${customPrixM3 !== null ? 'border-orange-400 bg-orange-50 text-orange-800' : 'text-blue-800'}`}
+                    />
                   </div>
                   {volume > 0 && (
                     <div>
-                      <p className="text-[10px] text-blue-500 uppercase font-semibold">Montant suggéré ({volume} m³)</p>
-                      <p className="text-sm font-bold text-green-700">{formatMontant(montantSuggere)}</p>
+                      <p className="text-[10px] text-blue-500 uppercase font-semibold">Montant de vente ({volume} m³)</p>
+                      <p className="text-sm font-bold text-green-700">{formatMontant(montantEffectif)}</p>
                     </div>
                   )}
                 </div>
@@ -318,24 +379,31 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             </div>
           )}
 
-          {/* Montant de vente */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Montant de vente (FCFA)
-              {prixUnitaireBordereau && <span className="ml-1 text-xs text-blue-500">— pré-rempli depuis le bordereau</span>}
-            </label>
-            <input
-              {...register('montantCommande')}
-              type="number"
-              placeholder="Ex : 21 000 000"
-              className="amp-input"
-              onChange={(e) => {
-                montantManualRef.current = true;
-                register('montantCommande').onChange(e);
-              }}
-            />
-            {errors.montantCommande && <p className="text-red-500 text-xs mt-1">{errors.montantCommande.message}</p>}
-          </div>
+          {/* Additifs facturables */}
+          {formulationId && (
+            <div className="md:col-span-3">
+              <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                <p className="text-xs font-semibold text-orange-700 uppercase mb-2">Additifs facturables — 10 000 FCFA/m³ chacun</p>
+                <div className="flex flex-wrap gap-5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" {...register('useRetardateur')} className="w-4 h-4 rounded accent-orange-600" />
+                    <span className="text-sm text-gray-700">Retardateur de prise</span>
+                    <span className="text-xs text-orange-600 font-medium">+10 000/m³</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" {...register('useAccelerateur')} className="w-4 h-4 rounded accent-orange-600" />
+                    <span className="text-sm text-gray-700">Accélérateur de prise</span>
+                    <span className="text-xs text-orange-600 font-medium">+10 000/m³</span>
+                  </label>
+                </div>
+                {adjuvantCost > 0 && (
+                  <p className="text-xs text-orange-700 mt-2 font-medium">
+                    Supplément additifs : +{formatMontant(adjuvantCost)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Remise */}
           <div>
@@ -345,7 +413,6 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             <input
               {...register('remisePct')}
               type="number" min="0" max="100" step="0.5"
-              placeholder="0"
               className="amp-input"
             />
             {watch && (() => {
@@ -362,10 +429,43 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Observations</label>
-            <textarea {...register('observations')} rows={2} placeholder="Remarques, conditions particulières..." className="amp-input resize-none" />
+            <textarea {...register('observations')} rows={2} className="amp-input resize-none" />
           </div>
         </div>
       </div>
+
+      {/* Options de coûts */}
+      {formulationId && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Options de coûts</h3>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" {...register('includePersonnel')} className="w-4 h-4 rounded accent-blue-600" />
+                <span className="text-sm text-gray-700">Frais de <strong>personnel</strong> (245 FCFA/m³)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" {...register('includeRestauration')} className="w-4 h-4 rounded accent-blue-600" />
+                <span className="text-sm text-gray-700">Frais de <strong>restauration</strong> (12 plats × 1 500 FCFA)</span>
+              </label>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Frais de péage <span className="text-gray-400">(FCFA/voyage)</span></label>
+                <input {...register('fraisPeage')} type="number" step="500" min="0" className="amp-input text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Autres frais <span className="text-gray-400">(FCFA fixe)</span></label>
+                <input {...register('autresFrais')} type="number" step="500" min="0" className="amp-input text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Libellé autres frais</label>
+                <input {...register('autresFraisLabel')} className="amp-input text-sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Calculs automatiques */}
       {(calculs || calculsLoading) && (
@@ -405,9 +505,9 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
               {[
                 { key: 'coutTotal', label: 'Coût production', highlight: true, money: true },
                 { key: 'coutUnitaire', label: 'Coût / m³', money: true },
-                { key: 'margePrevisionnelle', label: 'Marge commerciale', green: (overrides.margePrevisionnelle ?? calculs.margePrevisionnelle) > 0, money: true },
-                { key: 'beneficeReel', label: 'Bénéfice réel net', green: (overrides.beneficeReel ?? calculs.beneficeReel) > 0, money: true, gold: (overrides.beneficeReel ?? calculs.beneficeReel) <= 0 },
-              ].map(({ key, label, highlight, green, gold, money, unit }) => {
+                { key: 'margePrevisionnelle', label: 'Marge commerciale', pct: calculs?.tauxMarge, green: (overrides.margePrevisionnelle ?? calculs.margePrevisionnelle) > 0, money: true },
+                { key: 'beneficeReel', label: 'Bénéfice réel net', pct: calculs?.tauxBeneficeReel, green: (overrides.beneficeReel ?? calculs.beneficeReel) > 0, money: true, gold: (overrides.beneficeReel ?? calculs.beneficeReel) <= 0 },
+              ].map(({ key, label, highlight, green, gold, money, unit, pct }) => {
                 const v = valeur(key);
                 return (
                   <div key={key} className={`rounded-lg p-2.5 border ${highlight ? 'border-blue-300 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
@@ -418,8 +518,10 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                       onChange={(e) => setOverride(key, e.target.value)}
                       className={`w-full bg-transparent text-sm font-bold border-b border-dashed border-transparent hover:border-blue-300 focus:border-blue-400 focus:outline-none ${green ? 'text-green-600' : gold ? 'text-amber-600' : highlight ? 'text-blue-700' : 'text-gray-800'}`}
                     />
-                    {unit && !money && <p className="text-[9px] text-gray-400 mt-0.5">{unit}</p>}
-                    {money && <p className="text-[9px] text-gray-400 mt-0.5">FCFA</p>}
+                    <p className="text-[9px] mt-0.5 flex items-center gap-1">
+                      <span className="text-gray-400">FCFA</span>
+                      {pct != null && <span className={`font-semibold ${green ? 'text-green-500' : gold ? 'text-amber-500' : 'text-gray-500'}`}>— {Number(pct).toFixed(1)}%</span>}
+                    </p>
                   </div>
                 );
               })}

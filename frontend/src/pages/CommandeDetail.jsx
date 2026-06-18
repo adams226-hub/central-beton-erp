@@ -263,11 +263,14 @@ const CommandeDetail = () => {
           <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide border-b border-gray-100 pb-3 mb-4">Budget prévisionnel</h3>
           <div className="space-y-2">
             {[
-              { label: 'Coût matériaux',  value: commande.coutMateriaux },
-              { label: 'Coût gasoil',     value: commande.coutGasoil },
-              { label: 'Amortissements',  value: commande.coutAmortissement },
-              { label: 'Personnel',       value: commande.coutPersonnel },
-            ].map(({ label, value }) => (
+              { label: 'Coût matériaux',    value: commande.coutMateriaux },
+              { label: 'Coût gasoil',       value: commande.coutGasoil },
+              { label: 'Amortissements',    value: commande.coutAmortissement },
+              { label: 'Personnel',         value: commande.coutPersonnel,     hide: !commande.coutPersonnel },
+              { label: 'Restauration',      value: commande.fraisRestauration, hide: !commande.fraisRestauration },
+              { label: 'Frais de péage',    value: commande.coutPeage,         hide: !commande.coutPeage },
+              { label: commande.autresFraisLabel || 'Autres frais', value: commande.coutAutres, hide: !commande.coutAutres },
+            ].filter(r => !r.hide).map(({ label, value }) => (
               <div key={label} className="flex justify-between py-1 border-b border-gray-50 last:border-0">
                 <span className="text-sm text-gray-600">{label}</span>
                 <span className="text-sm text-gray-800">{formatMontant(value)}</span>
@@ -281,22 +284,80 @@ const CommandeDetail = () => {
               <span className="text-sm text-gray-600">Coût unitaire / m³</span>
               <span className="text-sm font-medium text-gray-800">{formatMontant(commande.coutUnitaire)}</span>
             </div>
-            {commande.montantCommande && (
-              <>
-                <div className="flex justify-between py-2 bg-gray-800 rounded-lg px-2 mt-2">
-                  <span className="text-sm font-semibold text-white">Montant commande</span>
-                  <span className="text-sm font-bold text-white">{formatMontant(commande.montantCommande)}</span>
-                </div>
-                <div className={cn('flex justify-between py-2 rounded-lg px-2', commande.margePrevisionnelle >= 0 ? 'bg-green-50' : 'bg-red-50')}>
-                  <span className={cn('text-sm font-semibold', commande.margePrevisionnelle >= 0 ? 'text-green-800' : 'text-red-800')}>
-                    Marge ({commande.tauxMarge}%)
-                  </span>
-                  <span className={cn('text-sm font-bold', commande.margePrevisionnelle >= 0 ? 'text-green-800' : 'text-red-800')}>
-                    {formatMontant(commande.margePrevisionnelle)}
-                  </span>
-                </div>
-              </>
+            {commande.montantCommande && commande.volumeBeton > 0 && (
+              <div className="flex justify-between py-1">
+                <span className="text-sm text-gray-600">
+                  Prix de vente / m³{commande.remisePct > 0 ? ` (remise ${commande.remisePct}% incluse)` : ''}
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {formatMontant(Math.round(commande.montantCommande / commande.volumeBeton))}
+                </span>
+              </div>
             )}
+            {commande.montantCommande && (() => {
+              const remisePct = commande.remisePct || 0;
+              const montantBrut = remisePct > 0
+                ? Math.round(commande.montantCommande * 100 / (100 - remisePct))
+                : commande.montantCommande;
+              const deduction = montantBrut - commande.montantCommande;
+              const adjCost = ((commande.useRetardateur ? 1 : 0) + (commande.useAccelerateur ? 1 : 0) + (commande.useHydrofuge ? 1 : 0)) * 10000 * (commande.volumeBeton || 0);
+              const betonBase = montantBrut - adjCost;
+              const hasAdj = adjCost > 0;
+              return (
+                <>
+                  {hasAdj && (
+                    <>
+                      <div className="flex justify-between py-1 border-b border-gray-50">
+                        <span className="text-sm text-gray-500">Béton {commande.typeBeton}</span>
+                        <span className="text-sm text-gray-600">{formatMontant(betonBase)}</span>
+                      </div>
+                      {commande.useHydrofuge && (
+                        <div className="flex justify-between py-1 border-b border-gray-50">
+                          <span className="text-sm text-orange-600">+ Hydrofuge</span>
+                          <span className="text-sm text-orange-600">+{formatMontant(10000 * commande.volumeBeton)}</span>
+                        </div>
+                      )}
+                      {commande.useRetardateur && (
+                        <div className="flex justify-between py-1 border-b border-gray-50">
+                          <span className="text-sm text-orange-600">+ Retardateur de prise</span>
+                          <span className="text-sm text-orange-600">+{formatMontant(10000 * commande.volumeBeton)}</span>
+                        </div>
+                      )}
+                      {commande.useAccelerateur && (
+                        <div className="flex justify-between py-1 border-b border-gray-50">
+                          <span className="text-sm text-orange-600">+ Accélérateur de prise</span>
+                          <span className="text-sm text-orange-600">+{formatMontant(10000 * commande.volumeBeton)}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {remisePct > 0 && (
+                    <>
+                      <div className="flex justify-between py-1 border-b border-gray-50">
+                        <span className="text-sm text-gray-500">{hasAdj ? 'Sous-total HT' : 'Prix brut bordereau'}</span>
+                        <span className="text-sm text-gray-600">{formatMontant(montantBrut)}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-orange-100">
+                        <span className="text-sm text-orange-700">Remise ({remisePct}%)</span>
+                        <span className="text-sm font-medium text-orange-700">− {formatMontant(deduction)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between py-2 bg-gray-800 rounded-lg px-2 mt-2">
+                    <span className="text-sm font-semibold text-white">Montant de vente</span>
+                    <span className="text-sm font-bold text-white">{formatMontant(commande.montantCommande)}</span>
+                  </div>
+                  <div className={cn('flex justify-between py-2 rounded-lg px-2', commande.margePrevisionnelle >= 0 ? 'bg-green-50' : 'bg-red-50')}>
+                    <span className={cn('text-sm font-semibold', commande.margePrevisionnelle >= 0 ? 'text-green-800' : 'text-red-800')}>
+                      Marge ({commande.tauxMarge}%)
+                    </span>
+                    <span className={cn('text-sm font-bold', commande.margePrevisionnelle >= 0 ? 'text-green-800' : 'text-red-800')}>
+                      {formatMontant(commande.margePrevisionnelle)}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -540,7 +601,7 @@ const CommandeDetail = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <h3 className="font-bold text-gray-800 mb-4">Motif du rejet</h3>
-            <textarea value={rejectMotif} onChange={(e) => setRejectMotif(e.target.value)} rows={3} placeholder="Expliquer la raison..." className="amp-input resize-none mb-4" />
+            <textarea value={rejectMotif} onChange={(e) => setRejectMotif(e.target.value)} rows={3} className="amp-input resize-none mb-4" />
             <div className="flex gap-3">
               <button onClick={handleRejeter} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium text-sm">Confirmer</button>
               <button onClick={() => setShowReject(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">Annuler</button>

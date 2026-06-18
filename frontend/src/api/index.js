@@ -53,19 +53,9 @@ export const usersAPI = {
 export const stocksAPI = {
   lister: (params) => api.get('/stocks', { params }),
   enregistrerEntree: (data) => api.post('/stocks/entree', data),
+  enregistrerSortie: (data) => api.post('/stocks/sortie', data),
   getMouvements: (id, params) => api.get(`/stocks/${id}/mouvements`, { params }),
   ajuster: (id, data) => api.post(`/stocks/${id}/ajuster`, data),
-};
-
-// ─── Production ───────────────────────────────────────
-export const productionAPI = {
-  lister: (params) => api.get('/production', { params }),
-  getOne: (id) => api.get(`/production/${id}`),
-  demarrer: (data) => api.post('/production', data),
-  changerStatut: (id, data) => api.patch(`/production/${id}/statut`, data),
-  terminer: (id, data) => api.patch(`/production/${id}/terminer`, data),
-  statistiques: () => api.get('/production/statistiques'),
-  ajouterEquipement: (id, data) => api.post(`/production/${id}/equipements`, data),
 };
 
 // ─── Équipements ──────────────────────────────────────
@@ -101,26 +91,6 @@ export const paiementsAPI = {
   getStatistiques: (params) => api.get('/paiements/statistiques', { params }),
   getCreances: () => api.get('/paiements/creances'),
   exportEtatPaiement: (commandeId) => api.get('/paiements/export', { params: { commandeId }, responseType: 'blob' }),
-};
-
-// ─── Analytics Phase 3 ────────────────────────────────
-export const analyticsAPI = {
-  kpisTempsReel: () => api.get('/analytics/kpis'),
-  tendancesMensuelles: (annee) => api.get('/analytics/tendances', { params: { annee } }),
-  rentabiliteParClient: (params) => api.get('/analytics/rentabilite-clients', { params }),
-  rentabiliteParTypeBeton: (params) => api.get('/analytics/rentabilite-beton', { params }),
-  consommationsMatieres: (mois) => api.get('/analytics/consommations', { params: { mois } }),
-  previsionsBudgetaires: (periodes) => api.get('/analytics/previsions', { params: { periodes } }),
-  performanceProduction: (params) => api.get('/analytics/performance', { params }),
-  analysePaiements: () => api.get('/analytics/paiements'),
-};
-
-// ─── Alertes Phase 3 ──────────────────────────────────
-export const alertesAPI = {
-  lister: (params) => api.get('/alertes', { params }),
-  generer: () => api.post('/alertes/generer'),
-  resoudre: (id) => api.patch(`/alertes/${id}/resoudre`),
-  resoudreTout: (niveau) => api.patch('/alertes/resoudre-tout', {}, { params: { niveau } }),
 };
 
 // ─── Paramètres ERP ───────────────────────────────────

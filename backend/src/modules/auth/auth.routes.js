@@ -6,7 +6,7 @@ const { authenticate } = require('../../middleware/auth');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 30,
   message: { success: false, message: 'Trop de tentatives. Réessayez dans 15 minutes.' },
 });
 

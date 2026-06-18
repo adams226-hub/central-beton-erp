@@ -9,9 +9,11 @@ const UNITES = {
   GRAVIER_515: { unite: 't', label: 'Gravier 5/15' },
   GRAVIER_1525: { unite: 't', label: 'Gravier 15/25' },
   EAU: { unite: 'm³', label: 'Eau' },
-  HYDROFUGE: { unite: 'L', label: 'Hydrofuge' },
-  POWERFLOW: { unite: 'L', label: 'Powerflow 6425' },
-  GASOIL: { unite: 'L', label: 'Gasoil' },
+  HYDROFUGE:    { unite: 'L', label: 'Hydrofuge' },
+  POWERFLOW:    { unite: 'L', label: 'Powerflow 6425' },
+  GASOIL:       { unite: 'L', label: 'Gasoil' },
+  RETARDATEUR:  { unite: 'L', label: 'Retardateur de prise' },
+  ACCELERATEUR: { unite: 'L', label: 'Accélérateur de prise' },
   AUTRE: { unite: 'u', label: 'Autre' },
 };
 
@@ -118,14 +120,16 @@ const enregistrerEntree = async (data, userId) => {
   return { mouvement, stock: updatedStock };
 };
 
-const deduireStockProduction = async (productionId, commandeId, formulation, volume, userId) => {
+const deduireStockProduction = async (commandeId, formulation, volume, userId) => {
   const besoins = [
     { type: 'CIMENT',       quantite: formulation.ciment * volume },
     { type: 'SABLE',        quantite: formulation.sable * volume },
     { type: 'GRAVIER_515',  quantite: formulation.gravier515 * volume * 1000 },
     { type: 'GRAVIER_1525', quantite: formulation.gravier1525 * volume * 1000 },
-    { type: 'HYDROFUGE',    quantite: formulation.hydrofuge * volume },
-    { type: 'POWERFLOW',    quantite: formulation.powerflow * volume },
+    { type: 'HYDROFUGE',    quantite: (formulation.hydrofuge    || 0) * volume },
+    { type: 'POWERFLOW',    quantite: (formulation.powerflow    || 0) * volume },
+    { type: 'RETARDATEUR',  quantite: (formulation.retardateur  || 0) * volume },
+    { type: 'ACCELERATEUR', quantite: (formulation.accelerateur || 0) * volume },
     { type: 'GASOIL',       quantite: (formulation.gasoilToupie + formulation.gasoilChargeur + formulation.gasoilPompe + formulation.gasoilGroupe) * (volume / 200) },
   ].filter((m) => m.quantite > 0);
 
@@ -153,7 +157,6 @@ const deduireStockProduction = async (productionId, commandeId, formulation, vol
           quantiteAvant: stock.quantite,
           quantiteApres,
           motif: `Production commande ${commandeId}`,
-          productionId,
           commandeId,
           userId,
         },
@@ -200,6 +203,48 @@ const deduireStockProduction = async (productionId, commandeId, formulation, vol
   return mouvements.map(({ materiau, quantite }) => ({ materiau, quantite }));
 };
 
+const enregistrerSortie = async (data, userId) => {
+  const stock = await prisma.stockMatiere.findUnique({ where: { id: data.stockId } });
+  if (!stock) throw Object.assign(new Error('Matière introuvable'), { statusCode: 404 });
+
+  const qte = parseFloat(data.quantite);
+  if (!(qte > 0)) throw Object.assign(new Error('Quantité invalide'), { statusCode: 400 });
+  if (stock.quantite < qte) throw Object.assign(new Error(`Stock insuffisant (dispo : ${stock.quantite} ${stock.unite})`), { statusCode: 400 });
+
+  let commandeId = null;
+  if (data.referenceCommande) {
+    const commande = await prisma.commande.findUnique({ where: { reference: data.referenceCommande } });
+    if (!commande) throw Object.assign(new Error(`Commande ${data.referenceCommande} introuvable`), { statusCode: 404 });
+    commandeId = commande.id;
+  }
+
+  const type = data.type || (commandeId ? 'SORTIE_COMMANDE' : 'SORTIE_AUTRE');
+  const motif = data.motif || (commandeId ? `Sortie commande ${data.referenceCommande}` : 'Sortie manuelle');
+  const quantiteApres = stock.quantite - qte;
+
+  const [mouvement, updatedStock] = await prisma.$transaction([
+    prisma.mouvementStock.create({
+      data: { stockId: data.stockId, type, quantite: qte, quantiteAvant: stock.quantite, quantiteApres, motif, commandeId, userId },
+    }),
+    prisma.stockMatiere.update({
+      where: { id: data.stockId },
+      data: { quantite: quantiteApres, dernierMouvement: new Date() },
+    }),
+  ]);
+
+  if (quantiteApres <= stock.seuilAlerte) {
+    emitToAll('stock:alerte', {
+      niveau: quantiteApres <= stock.seuilCritique ? 'CRITIQUE' : 'FAIBLE',
+      designation: stock.designation,
+      quantite: quantiteApres,
+    });
+  }
+  emitToAll('stock:mise_a_jour', { stockId: data.stockId, quantite: quantiteApres });
+
+  logger.info(`Sortie stock : -${qte} ${stock.unite} ${stock.designation} (${motif})`);
+  return { mouvement, stock: updatedStock };
+};
+
 const ajusterStock = async (data, userId) => {
   const stock = await prisma.stockMatiere.findUnique({ where: { id: data.stockId } });
   if (!stock) throw Object.assign(new Error('Matière introuvable'), { statusCode: 404 });
@@ -242,4 +287,4 @@ const getStatutStock = (s) => {
   return 'OK';
 };
 
-module.exports = { listerStocks, getAlertes, getTableauDeBord, getMouvements, enregistrerEntree, deduireStockProduction, ajusterStock, mettreAJourPrix };
+module.exports = { listerStocks, getAlertes, getTableauDeBord, getMouvements, enregistrerEntree, enregistrerSortie, deduireStockProduction, ajusterStock, mettreAJourPrix };

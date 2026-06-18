@@ -4,7 +4,7 @@
 
 [build.environment]
   NODE_VERSION    = "20"
-  VITE_API_URL    = "https://central-beton-erp.onrender.com/api"
+  VITE_API_URL    = "https://cental-betonerp.onrender.com/api"
   VITE_SOCKET_URL = "https://central-beton-erp.onrender.com"
 
 [[redirects]]

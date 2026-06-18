@@ -88,7 +88,7 @@ const UserModal = ({ user, onClose, onSuccess }) => {
           )}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
-            <input value={form.telephone} onChange={e => setForm({...form, telephone: e.target.value})} className="amp-input text-sm" placeholder="+226 XX XX XX XX" />
+            <input value={form.telephone} onChange={e => setForm({...form, telephone: e.target.value})} className="amp-input text-sm" />
           </div>
           {!isEdit && (
             <div>
@@ -108,7 +108,6 @@ const UserModal = ({ user, onClose, onSuccess }) => {
                 value={form.password}
                 onChange={e => setForm({...form, password: e.target.value})}
                 className="amp-input text-sm pr-10"
-                placeholder={isEdit ? '••••••••' : 'Min. 8 caractères'}
               />
               <button type="button" onClick={() => setShowPwd(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}

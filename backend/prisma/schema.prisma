@@ -83,16 +83,6 @@ enum TypeActivite {
   AUTRE
 }
 
-// Phase 2 Enums
-enum StatutProduction {
-  EN_ATTENTE
-  EN_COURS
-  CHARGEMENT
-  LIVRAISON
-  TERMINE
-  ANNULE
-}
-
 enum TypeMatiere {
   CIMENT
   SABLE
@@ -195,7 +185,6 @@ model User {
   formulationsModifiees  FormulationHistorique[]
 
   // Phase 2
-  productionsDemarrees   Production[]               @relation("ProductionOperateur")
   maintenances           MaintenanceEquipement[]
   paiementsEnregistres   Paiement[]
   mouvementsStock        MouvementStock[]
@@ -360,7 +349,6 @@ model Commande {
   notifications Notification[]
 
   // Phase 2
-  productions Production[]
   livraisons  Livraison[]
   paiements        Paiement[]
   mouvementsStock  MouvementStock[]
@@ -457,74 +445,6 @@ model Activite {
 }
 
 // ═══════════════════════════════════════════════════════
-// PHASE 2 — PRODUCTION BÉTON
-// ═══════════════════════════════════════════════════════
-
-model Production {
-  id             String          @id @default(cuid())
-  reference      String          @unique
-  commandeId     String
-  commande       Commande        @relation(fields: [commandeId], references: [id])
-  statut         StatutProduction @default(EN_ATTENTE)
-
-  volumePlanifie Float
-  volumeProduit  Float           @default(0)
-
-  dateDebutPrevue DateTime?
-  dateDebut       DateTime?
-  dateFin         DateTime?
-  dureeHeures     Float?
-
-  // Consommations réelles (remplies à la fin)
-  cimentConsomme     Float?
-  sableConsomme      Float?
-  gravier515Consomme Float?
-  gravier1525Consomme Float?
-  eauConsommee       Float?
-  hydrofugeConsomme  Float?
-  powerflowConsomme  Float?
-  gasoilConsomme     Float?
-
-  // Coûts réels
-  coutMatieres      Float?
-  coutCarburant     Float?
-  coutAmortissement Float?
-  coutMaintenance   Float?
-  coutPersonnel     Float?
-  coutTotal         Float?
-
-  // Rendement
-  rendement     Float? // % de réalisation
-  observations  String? @db.Text
-
-  operateurId String
-  operateur   User   @relation("ProductionOperateur", fields: [operateurId], references: [id])
-
-  equipements     ProductionEquipement[]
-  mouvementsStock MouvementStock[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("productions")
-}
-
-model ProductionEquipement {
-  id              String     @id @default(cuid())
-  productionId    String
-  production      Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  equipementId    String
-  equipement      Equipement @relation(fields: [equipementId], references: [id])
-  heuresUtilisees Float      @default(0)
-  coutAmortissement Float    @default(0)
-
-  createdAt DateTime @default(now())
-
-  @@unique([productionId, equipementId])
-  @@map("production_equipements")
-}
-
-// ═══════════════════════════════════════════════════════
 // PHASE 2 — GESTION DES STOCKS
 // ═══════════════════════════════════════════════════════
 
@@ -562,8 +482,6 @@ model MouvementStock {
   reference      String?       // N° bon de livraison, facture, etc.
   commandeId     String?
   commande       Commande?      @relation(fields: [commandeId], references: [id])
-  productionId   String?
-  production     Production?   @relation(fields: [productionId], references: [id])
   userId         String
   user           User          @relation(fields: [userId], references: [id])
 
@@ -606,7 +524,6 @@ model Equipement {
 
   isActive Boolean @default(true)
 
-  productions  ProductionEquipement[]
   maintenances MaintenanceEquipement[]
   livraisons   Livraison[]
 
@@ -698,104 +615,6 @@ model Paiement {
   updatedAt DateTime @updatedAt
 
   @@map("paiements")
-}
-
-// ═══════════════════════════════════════════════════════
-// PHASE 3 — ALERTES INTELLIGENTES
-// ═══════════════════════════════════════════════════════
-
-enum TypeAlerte {
-  STOCK_FAIBLE
-  STOCK_CRITIQUE
-  PAIEMENT_RETARD
-  EQUIPEMENT_REVISION
-  EQUIPEMENT_PANNE
-  PRODUCTION_ANOMALIE
-  CONSOMMATION_ANORMALE
-  MARGE_FAIBLE
-  BUDGET_DEPASSE
-  CLIENT_IMPAYE
-}
-
-enum NiveauAlerte {
-  CRITIQUE
-  AVERTISSEMENT
-  INFO
-}
-
-model AlerteIntelligente {
-  id         String       @id @default(cuid())
-  type       TypeAlerte
-  niveau     NiveauAlerte
-  titre      String
-  message    String       @db.Text
-  entiteType String?
-  entiteId   String?
-  donnees    Json?
-  resolu     Boolean      @default(false)
-  resolvedAt DateTime?
-  resolvedBy String?
-  autoGenere Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-
-  @@map("alertes_intelligentes")
-}
-
-model BudgetPrevisionnel {
-  id           String   @id @default(cuid())
-  mois         Int
-  annee        Int
-  caCible      Float    @default(0)
-  depensesCible Float   @default(0)
-  volumeCible  Float    @default(0)
-  beneficeCible Float   @default(0)
-  cimentPrev   Float    @default(0)
-  gasoilPrev   Float    @default(0)
-  note         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([mois, annee])
-  @@map("budgets_previsionnels")
-}
-
-model KPISnapshot {
-  id        String   @id @default(cuid())
-  date      DateTime @unique @default(now())
-  caJour    Float    @default(0)
-  caMonth   Float    @default(0)
-  benefice  Float    @default(0)
-  volume    Float    @default(0)
-  commandes Int      @default(0)
-  stockVal  Float    @default(0)
-  encaisse  Float    @default(0)
-  createdAt DateTime @default(now())
-
-  @@map("kpi_snapshots")
-}
-
-// ═══════════════════════════════════════════════════════
-// PHASE 2 — CONSOMMATION CARBURANT
-// ═══════════════════════════════════════════════════════
-
-model ConsoCarburant {
-  id           String    @id @default(cuid())
-  date         DateTime
-  equipementId String?
-  nomEquipement String?
-  litres       Float
-  prixLitre    Float     @default(675)
-  montantTotal Float
-  productionId String?
-  commandeId   String?
-  motif        String?
-  fournisseur  String?
-  bonNumero    String?
-
-  createdAt DateTime @default(now())
-
-  @@map("conso_carburant")
 }
 
 model ParametresERP {

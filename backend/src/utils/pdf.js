@@ -131,13 +131,22 @@ const generateDevis = (commande, calculs) => {
     BLEU, [BLANC, BLANC, BLANC, BLANC, BLANC], [true, true, true, true, true]);
   y += 16;
 
-  const prixUnitaireDevis = c.montantCommande && c.volumeBeton
-    ? Math.round(c.montantCommande / c.volumeBeton)
-    : 0;
+  // Si remise → recalculer le montant brut avant remise pour affichage
+  const montantBrutDevis = (c.remisePct > 0 && c.montantCommande)
+    ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
+    : (c.montantCommande || 0);
+  const deductionRemiseDevis = montantBrutDevis - (c.montantCommande || 0);
+  const montantBaseDevis = montantBrutDevis;
+  // Prix NET après remise (montantCommande est déjà post-remise)
+  const remiseDevis = parseFloat(c.remisePct) || 0;
+  const netFactorDevis = 1 - remiseDevis / 100;
+  const montantNetBetonDevis = Math.round(montantBaseDevis * netFactorDevis);
+  const prixNetBetonM3Devis = c.volumeBeton > 0 ? Math.round(montantNetBetonDevis / c.volumeBeton) : 0;
+  const labelRemiseDevis = remiseDevis > 0 ? ` (remise ${fmtD(remiseDevis)}%)` : '';
 
   drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
-    [`Béton prêt à l'emploi ${c.typeBeton || ''}`, 'm³', fmtD(c.volumeBeton),
-      prixUnitaireDevis > 0 ? fmtF(prixUnitaireDevis) + '/m³' : '—', fmtF(c.montantCommande)],
+    [`Béton prêt à l'emploi ${c.typeBeton || ''}${labelRemiseDevis}`, 'm³', fmtD(c.volumeBeton),
+      prixNetBetonM3Devis > 0 ? fmtF(prixNetBetonM3Devis) + '/m³' : '—', fmtF(montantNetBetonDevis)],
     '#fff7ed', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
   y += ROW_H;
 
@@ -191,6 +200,12 @@ const generateDevis = (commande, calculs) => {
   bRow(item++, 'Sable Naturel (Centrale béton)','m³',  fmt(k.prixSable),      fmtD(k.totalSable),       fmtF(k.coutSable),            BG0);
   bRow(item++, 'Powerflow 6425',               'litre', fmt(k.prixPowerflow), fmt(k.totalPowerflow),    fmtF(k.coutPowerflow),        BG1);
   bRow(item++, 'Hydrofuge',                    'litre', fmt(k.prixHydrofuge), fmt(k.totalHydrofuge),    fmtF(k.coutHydrofuge),        BG0);
+  if (c.useRetardateur) {
+    bRow(item++, 'Retardateur de prise (additif)', 'm³', fmt(10000), fmtD(c.volumeBeton), fmtF(10000 * (c.volumeBeton || 0)), BG1);
+  }
+  if (c.useAccelerateur) {
+    bRow(item++, 'Accélérateur de prise (additif)', 'm³', fmt(10000), fmtD(c.volumeBeton), fmtF(10000 * (c.volumeBeton || 0)), BG0);
+  }
   bRow(item++, 'Gasoil groupe électrogène',    'litre', fmt(PG),              fmt(k.gasoilGroupeL),     fmtF(k.gasoilGroupeL   * PG), BG1);
   bRow(item++, 'Gasoil pour toupies',          'litre', fmt(PG),              fmt(k.gasoilToupieL),     fmtF(k.gasoilToupieL   * PG), BG0);
   bRow(item++, 'Gasoil pour chargeur',         'litre', fmt(PG),              fmt(k.gasoilChargeurL),   fmtF(k.gasoilChargeurL * PG), BG1);
@@ -200,7 +215,9 @@ const generateDevis = (commande, calculs) => {
   bRow(item++, 'Amortissement (CENTRALE BETON)','H',   fmt(k.amortCentraleRate),  fmtD(k.amortCentraleH),  fmtF(k.amortCentraleF),  BG1);
   bRow(item++, 'Amortissement (GROUPE ELECTROG.)','H', fmt(k.amortGroupeRate),    fmtD(k.amortGroupeH),    fmtF(k.amortGroupeF),    BG0);
   bRow(item++, 'Amortissement (CHARGEUSE)',     'H',   fmt(k.amortChargeuseRate), fmtD(k.amortChargeuseH), fmtF(k.amortChargeuseF), BG1);
-  bRow(item++, 'Frais restauration & Divers',  'plat', fmt(k.prixRepas || 1500),  fmt(k.nbRepas || 12),    fmtF(k.fraisRestauration), BG0);
+  if ((k.fraisRestauration || 0) > 0) {
+    bRow(item++, 'Frais restauration & Divers', 'plat', fmt(k.prixRepas || 1500), fmt(k.nbRepas || 0), fmtF(k.fraisRestauration), BG0);
+  }
 
   // Sous-total approvisionnements + amortissement
   const totalAppro = (k.coutMateriaux || 0) + (k.coutGasoil || 0) + (k.coutAmortissement || 0) + (k.fraisRestauration || 0);
@@ -210,8 +227,21 @@ const generateDevis = (commande, calculs) => {
     .text(fmtF(totalAppro), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
   y += 19;
 
-  // Charge du personnel
-  bRow(item++, 'Charge du personnel', 'm³', '245', fmtD(c.volumeBeton), fmtF(k.coutPersonnel), BLANC);
+  // Charge du personnel (si > 0)
+  if ((k.coutPersonnel || 0) > 0) {
+    bRow(item++, 'Charge du personnel', 'm³', '245', fmtD(c.volumeBeton), fmtF(k.coutPersonnel), BLANC);
+  }
+
+  // Frais péage (si > 0)
+  if ((k.coutPeage || 0) > 0) {
+    bRow(item++, 'Frais de péage', 'voyage', '—', '—', fmtF(k.coutPeage), BG1);
+  }
+
+  // Autres frais (si > 0)
+  if ((k.coutAutres || 0) > 0) {
+    const autresLabel = k.autresFraisLabel ? `Autres frais — ${k.autresFraisLabel}` : 'Autres frais divers';
+    bRow(item++, autresLabel, 'forfait', '—', '—', fmtF(k.coutAutres), BG0);
+  }
 
   // Total charges de fonctionnement
   doc.rect(45, y, 505, 17).fillColor(BLEU_CLAIR).fill();
@@ -234,16 +264,31 @@ const generateDevis = (commande, calculs) => {
     .text(fmtF(k.coutUnitaire), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
   y += 19;
 
-  // Montant commande + marge
+  // Montant commande + remise + marge
   if (c.montantCommande) {
-    doc.rect(45, y, 505, 17).fillColor(BLANC).fill();
-    doc.fontSize(8.5).font('Helvetica').fillColor(NOIR)
-      .text('Montant commande client', 50, y + 4, { width: 380, lineBreak: false })
+    // Si remise → afficher prix brut puis déduction
+    if (c.remisePct > 0 && deductionRemiseDevis > 0) {
+      doc.rect(45, y, 505, 17).fillColor(BLANC).fill();
+      doc.fontSize(8.5).font('Helvetica').fillColor(NOIR)
+        .text(`Prix avant remise (${fmtD(c.remisePct)}%)`, 50, y + 4, { width: 380, lineBreak: false })
+        .text(fmtF(montantBrutDevis), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+      y += 17;
+
+      doc.rect(45, y, 505, 17).fillColor('#FFF3CD').fill();
+      doc.fontSize(8.5).font('Helvetica').fillColor('#B45309')
+        .text(`Remise ${fmtD(c.remisePct)}%`, 50, y + 4, { width: 380, lineBreak: false })
+        .text(`- ${fmtF(deductionRemiseDevis)}`, 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+      y += 17;
+    }
+
+    doc.rect(45, y, 505, 17).fillColor('#1E3A5F').fill();
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(BLANC)
+      .text('Montant de vente', 50, y + 4, { width: 380, lineBreak: false })
       .text(fmtF(c.montantCommande), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
     y += 17;
 
-    const margePos  = (k.margePrevisionnelle || 0) >= 0;
-    const margeBg   = margePos ? VERT_CLAIR : ROUGE_CLAIR;
+    const margePos   = (k.margePrevisionnelle || 0) >= 0;
+    const margeBg    = margePos ? VERT_CLAIR : ROUGE_CLAIR;
     const margeColor = margePos ? VERT : ROUGE;
     doc.rect(45, y, 505, 19).fillColor(margeBg).fill();
     doc.fontSize(9).font('Helvetica-Bold').fillColor(margeColor)
@@ -547,15 +592,16 @@ const generateFactureProforma = (commande) => {
   const COLS = [40, 175, 55, 70, 80, 75]; // widths
   const HEADERS = ['Nos ref', 'DESIGNATION', 'UNITE', 'QUANTITE', 'PRIX UNITAIRE', 'MONTANT'];
 
-  // Bordure externe
+  // Bordure externe (hauteur dynamique selon adjuvants)
   const tableW = COLS.reduce((a, b) => a + b, 0);
-  doc.rect(L, y, tableW, TH + TR + TR).lineWidth(0.8).strokeColor(NOIR).stroke();
+  const adjCountFP = (c.useHydrofuge ? 1 : 0) + (c.useRetardateur ? 1 : 0) + (c.useAccelerateur ? 1 : 0);
+  doc.rect(L, y, tableW, TH + TR * (2 + adjCountFP)).lineWidth(0.8).strokeColor(NOIR).stroke();
 
   // En-tête tableau
   doc.rect(L, y, tableW, TH).fillColor('#D1D5DB').fill();
   let tx = L;
   HEADERS.forEach((h, i) => {
-    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + TH + TR + TR).lineWidth(0.5).strokeColor(NOIR).stroke();
+    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + TH + TR * (2 + adjCountFP)).lineWidth(0.5).strokeColor(NOIR).stroke();
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
       .text(h, tx + 4, y + (TH - 9) / 2 + 1, { width: COLS[i] - 8, align: 'center', lineBreak: false });
     tx += COLS[i];
@@ -565,10 +611,22 @@ const generateFactureProforma = (commande) => {
   doc.moveTo(L, y + TH).lineTo(L + tableW, y + TH).lineWidth(0.5).strokeColor(NOIR).stroke();
   y += TH;
 
-  // Ligne 1 — Béton
-  const prixUnit = c.volumeBeton > 0 ? Math.round((c.montantCommande || 0) / c.volumeBeton) : 0;
-  const ligneVals = ['1', `Béton de ${c.typeBeton || 'C25/30'}`, 'm3',
-    String(c.volumeBeton || 0), fmt(prixUnit), fmt(c.montantCommande || 0)];
+  // Ligne 1 — Béton base (prix NET après remise)
+  const montantBrutFP  = (c.remisePct > 0 && c.montantCommande)
+    ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
+    : (c.montantCommande || 0);
+  const deductFP = montantBrutFP - (c.montantCommande || 0);
+  const adjCostFP = adjCountFP * 10000 * (c.volumeBeton || 0);
+  const montantBaseFP = montantBrutFP - adjCostFP;
+  const remiseFP = parseFloat(c.remisePct) || 0;
+  const netFactorFP = 1 - remiseFP / 100;
+  const montantNetBetonFP = Math.round(montantBaseFP * netFactorFP);
+  const prixUnit = c.volumeBeton > 0 ? Math.round(montantNetBetonFP / c.volumeBeton) : 0;
+  const prixNetAdjFP = Math.round(10000 * netFactorFP);
+  const labelRemiseFP = remiseFP > 0 ? ` (-${fmtD(remiseFP)}%)` : '';
+  let rowNumFP = 1;
+  const ligneVals = [String(rowNumFP++), `Béton de ${c.typeBeton || 'C25/30'}${labelRemiseFP}`, 'm3',
+    String(c.volumeBeton || 0), fmt(prixUnit), fmt(montantNetBetonFP)];
 
   tx = L;
   ligneVals.forEach((v, i) => {
@@ -580,9 +638,30 @@ const generateFactureProforma = (commande) => {
   y += TR;
   doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
 
-  // Ligne TOTAL
-  doc.rect(L, y, tableW, TR).fillColor('#F3F4F6').fill();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
+  // Lignes adjuvants (prix NET)
+  const adjuvantsRows = [
+    { active: c.useHydrofuge,    label: 'Hydrofuge (additif)' },
+    { active: c.useRetardateur,  label: 'Retardateur de prise (additif)' },
+    { active: c.useAccelerateur, label: 'Accélérateur de prise (additif)' },
+  ];
+  for (const adj of adjuvantsRows) {
+    if (!adj.active) continue;
+    const adjVals = [String(rowNumFP++), `${adj.label}${labelRemiseFP}`, 'm3',
+      String(c.volumeBeton || 0), fmt(prixNetAdjFP), fmt(prixNetAdjFP * (c.volumeBeton || 0))];
+    tx = L;
+    adjVals.forEach((v, i) => {
+      const align = i >= 3 ? 'right' : (i === 1 ? 'left' : 'center');
+      doc.fontSize(9).font('Helvetica').fillColor(NOIR)
+        .text(v, tx + 4, y + (TR - 10) / 2 + 1, { width: COLS[i] - 8, align, lineBreak: false });
+      tx += COLS[i];
+    });
+    y += TR;
+    doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
+  }
+
+  // Ligne TOTAL (montant après remise)
+  doc.rect(L, y, tableW, TR).fillColor('#1E3A5F').fill();
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
     .text('TOTAL GENERAL HTVA', L + 4, y + (TR - 10) / 2 + 1, { width: COLS[0] + COLS[1] + COLS[2] + COLS[3] + COLS[4] - 8, align: 'center', lineBreak: false })
     .text(fmt(c.montantCommande || 0), L + COLS[0] + COLS[1] + COLS[2] + COLS[3] + COLS[4] + 4, y + (TR - 10) / 2 + 1, { width: COLS[5] - 8, align: 'right', lineBreak: false });
   y += TR + 14;
@@ -654,7 +733,7 @@ const generateEtatLivraison = (commande, livraisons) => {
     ['Chantier / Site', c.adresseChantier || '—'],
     ['Type béton', c.typeBeton || '—'],
     ['Volume commandé', `${c.volumeBeton || 0} m³`],
-    ['Montant commande', fmtF(c.montantCommande || 0)],
+    ['Montant de vente', fmtF(c.montantCommande || 0)],
   ];
   infos.forEach(([label, val], i) => {
     drawRow(doc, y, 17, [200, 310], [label, val], i % 2 === 0 ? BLANC : GRIS_LEGER, [GRIS, NOIR], [true, false], ['left', 'left']);

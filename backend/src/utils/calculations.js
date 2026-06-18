@@ -1,3 +1,21 @@
+// Bordereau de prix AMP BETON (FCFA/m³)
+const TARIF_BORDEREAU = {
+  1: { C5: 66000, C15: 76000, C20: 91000,  C25: 98000,  C30: 108000, C35: 119000, C40: 126000 },
+  2: { C5: 75000, C15: 86500, C20: 101000, C25: 106000, C30: 117000, C35: 128000, C40: 134000 },
+  3: { C5: 78000, C15: 91000, C20: 107000, C25: 114000, C30: 124000, C35: 135000, C40: 141000 },
+};
+
+// Prix unitaire bordereau selon type béton + distance
+const getBordereauPrixUnitaire = (typeBeton, distance) => {
+  const d = parseFloat(distance) || 0;
+  let zone = 0;
+  if (d > 0 && d <= 50)   zone = 1;
+  else if (d <= 100)       zone = 2;
+  else if (d <= 150)       zone = 3;
+  if (!zone || !typeBeton) return 0;
+  return TARIF_BORDEREAU[zone]?.[typeBeton] ?? 0;
+};
+
 // Détermine la zone et les heures de trajet selon la distance
 const getZoneInfo = (distance) => {
   const d = parseFloat(distance) || 0;
@@ -7,11 +25,17 @@ const getZoneInfo = (distance) => {
   return            { zone: 3, heures: 6.0 };
 };
 
-const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0, params = {}, remisePct = 0) => {
+const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, distance = 0, params = {}, remisePct = 0, options = {}) => {
   const v = parseFloat(volume);
   if (!v || v <= 0) throw Object.assign(new Error('Volume doit être supérieur à 0'), { statusCode: 400 });
   const d  = parseFloat(distance) || 0;
   const f  = formulation;
+
+  // Si montant non fourni → auto-calcul depuis le bordereau
+  if (!montantCommande || montantCommande <= 0) {
+    const prixUnit = getBordereauPrixUnitaire(f.typeBeton, d);
+    if (prixUnit > 0) montantCommande = Math.round(prixUnit * v);
+  }
 
   // ── Constantes depuis paramètres DB ──────────────────────────────────────
   const PRIX_GASOIL    = params.prixGasoil            ?? 1205;
@@ -36,10 +60,10 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const AMORT_POMPE_FACTOR      = 1.3;
   const AMORT_GROUPE_FACTOR     = 1.3;
   const AMORT_CHARGEUSE_FACTOR  = 1.1;
-  const VOYAGES_CAPACITE        = 11;   // m³ par voyage
+  const VOYAGES_CAPACITE        = 10;   // m³ par voyage
 
   const { heures: heuresZone } = getZoneInfo(d);
-  const Nvoyage = d > 0 ? Math.ceil(v / VOYAGES_CAPACITE) + 2 : 0;
+  const Nvoyage = d > 0 ? Math.ceil(v / VOYAGES_CAPACITE) : 0;
   const ratio   = v / VOL_REF;
 
   // ── 1. MATIÈRES PREMIÈRES ────────────────────────────────────────────────
@@ -65,6 +89,14 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const totalHydrofuge = (f.hydrofuge || 0) * v;
   const coutHydrofuge  = totalHydrofuge * (f.prixHydrofuge || 2750);
 
+  // Retardateur de prise
+  const totalRetardateur = (f.retardateur || 0) * v;
+  const coutRetardateur  = totalRetardateur * (f.prixRetardateur || 0);
+
+  // Accélérateur de prise
+  const totalAccelerateur = (f.accelerateur || 0) * v;
+  const coutAccelerateur  = totalAccelerateur * (f.prixAccelerateur || 0);
+
   // Powerflow : 1% du poids de ciment
   const cimentKgParM3  = f.ciment * 1000;
   const totalPowerflow = POWERFLOW_TENEUR * cimentKgParM3 * v;
@@ -72,7 +104,7 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
 
   const coutMateriaux = coutCiment + coutTransportCiment
     + coutGravier515 + coutGravier1525
-    + coutSable + coutHydrofuge + coutPowerflow;
+    + coutSable + coutHydrofuge + coutRetardateur + coutAccelerateur + coutPowerflow;
 
   // ── 2. GASOIL ────────────────────────────────────────────────────────────
   let gasoilGroupeL, gasoilToupieL, gasoilChargeurL, gasoilPompeL, coutGasoil;
@@ -94,49 +126,42 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const totalGasoil = gasoilGroupeL + gasoilToupieL + gasoilChargeurL + gasoilPompeL;
 
   // ── 3. AMORTISSEMENTS ────────────────────────────────────────────────────
-  let amortToupieH, amortToupieF;
-  let amortPompeH,  amortPompeF;
-  let amortGroupeH, amortGroupeF;
-  let amortChargeuseH, amortChargeuseF;
-  let amortCentraleH, amortCentraleF;
+  const AMORT_TOUPIE_RATE    = 6648;
+  const AMORT_POMPE_RATE     = 33200;
+  const AMORT_GROUPE_RATE    = 7500;
+  const AMORT_CHARGEUSE_RATE = 45550;
 
-  if (d > 0) {
-    amortToupieH    = Nvoyage * heuresZone;
-    amortToupieF    = amortToupieH * f.amortToupie;
+  // Toupie & Pompe : métrique mixte (heuresZone × 1.3 + volume) / 100
+  const amortBaseMixte = (heuresZone * 1.3 + v) / 100;
+  const amortToupieH   = amortBaseMixte;
+  const amortToupieF   = amortBaseMixte * AMORT_TOUPIE_RATE;
 
-    amortPompeH     = heuresZone * AMORT_POMPE_FACTOR;
-    amortPompeF     = amortPompeH * f.amortPompe;
+  const amortPompeH    = amortBaseMixte;
+  const amortPompeF    = amortBaseMixte * AMORT_POMPE_RATE;
 
-    amortGroupeH    = (v / d) * AMORT_GROUPE_FACTOR;
-    amortGroupeF    = amortGroupeH * f.amortGroupe;
+  // Groupe & Chargeuse : métrique volume (volume / 60) × facteur
+  const amortGroupeH    = (v / 60) * AMORT_GROUPE_FACTOR;
+  const amortGroupeF    = amortGroupeH * AMORT_GROUPE_RATE;
 
-    amortChargeuseH = (v / d) * AMORT_CHARGEUSE_FACTOR;
-    amortChargeuseF = amortChargeuseH * f.amortChargeuse;
+  const amortChargeuseH = (v / 60) * AMORT_CHARGEUSE_FACTOR;
+  const amortChargeuseF = amortChargeuseH * AMORT_CHARGEUSE_RATE;
 
-    amortCentraleH  = f.hCentrale * ratio;
-    amortCentraleF  = f.amortCentrale * amortCentraleH;
-  } else {
-    amortToupieH    = f.hToupie    * ratio;
-    amortPompeH     = f.hPompe     * ratio;
-    amortGroupeH    = f.hGroupe    * ratio;
-    amortChargeuseH = f.hChargeuse * ratio;
-    amortCentraleH  = f.hCentrale  * ratio;
-
-    amortToupieF    = f.amortToupie    * amortToupieH;
-    amortPompeF     = f.amortPompe     * amortPompeH;
-    amortGroupeF    = f.amortGroupe    * amortGroupeH;
-    amortChargeuseF = f.amortChargeuse * amortChargeuseH;
-    amortCentraleF  = f.amortCentrale  * amortCentraleH;
-  }
+  // Centrale (inchangée)
+  const amortCentraleH  = f.hCentrale * ratio;
+  const amortCentraleF  = f.amortCentrale * amortCentraleH;
   const coutAmortissement = amortToupieF + amortPompeF + amortGroupeF + amortChargeuseF + amortCentraleF;
 
-  // ── 4. PERSONNEL & RESTAURATION (optionnels) ────────────────────────────
-  const coutPersonnel     = (f.includePersonnel !== false) ? v * CHARGE_PERS : 0;
-  const fraisRestauration = (f.includeRestauration !== false) ? Math.ceil(v / VOL_REF) * NB_REPAS * FRAIS_REPAS : 0;
+  // ── 4. PERSONNEL & RESTAURATION (options commande prioritaires) ─────────
+  const inclPerso  = options.includePersonnel !== undefined ? options.includePersonnel : (f.includePersonnel !== false);
+  const inclRepas  = options.includeRestauration !== undefined ? options.includeRestauration : (f.includeRestauration !== false);
+  const coutPersonnel     = inclPerso  ? v * CHARGE_PERS : 0;
+  const fraisRestauration = inclRepas  ? Math.ceil(v / VOL_REF) * NB_REPAS * FRAIS_REPAS : 0;
 
-  // ── 5. FRAIS SUPPLÉMENTAIRES (péage, autres) ────────────────────────────
-  const coutPeage     = d > 0 ? (f.fraisPeage || 0) * Nvoyage : 0;
-  const coutAutres    = f.autresFrais || 0;
+  // ── 5. FRAIS SUPPLÉMENTAIRES (péage, autres — options commande prioritaires)
+  const peageUnit  = options.fraisPeage  !== undefined ? parseFloat(options.fraisPeage)  : (f.fraisPeage  || 0);
+  const autresVal  = options.autresFrais !== undefined ? parseFloat(options.autresFrais) : (f.autresFrais || 0);
+  const coutPeage  = d > 0 ? peageUnit * Nvoyage : 0;
+  const coutAutres = autresVal;
   const fraisSupp     = coutPeage + coutAutres;
 
   // ── 6. TOTAUX ────────────────────────────────────────────────────────────
@@ -165,8 +190,10 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
     totalGravier515:  Math.round(totalGravier515 * 100) / 100,
     totalGravier1525: Math.round(totalGravier1525 * 100) / 100,
     totalEau:         Math.round(totalEau),
-    totalHydrofuge:   Math.round(totalHydrofuge * 100) / 100,
-    totalPowerflow:   Math.round(totalPowerflow * 100) / 100,
+    totalHydrofuge:    Math.round(totalHydrofuge * 100) / 100,
+    totalRetardateur:  Math.round(totalRetardateur * 100) / 100,
+    totalAccelerateur: Math.round(totalAccelerateur * 100) / 100,
+    totalPowerflow:    Math.round(totalPowerflow * 100) / 100,
     totalGasoil:      Math.round(totalGasoil),
 
     // Coûts matières (pour PDF)
@@ -175,6 +202,9 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
     coutSable:            Math.round(coutSable),
     coutGravier515:       Math.round(coutGravier515),
     coutGravier1525:      Math.round(coutGravier1525),
+    coutHydrofuge:        Math.round(coutHydrofuge),
+    coutRetardateur:      Math.round(coutRetardateur),
+    coutAccelerateur:     Math.round(coutAccelerateur),
     coutPowerflow:        Math.round(coutPowerflow),
 
     // Gasoil détaillé (pour PDF)
@@ -186,19 +216,19 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
     prixTransportCiment: PRIX_TRANSPORT,
 
     // Amortissements détaillés (pour PDF)
-    amortToupieRate:    f.amortToupie,
+    amortToupieRate:    AMORT_TOUPIE_RATE,
     amortToupieH:       Math.round(amortToupieH * 100) / 100,
     amortToupieF:       Math.round(amortToupieF),
-    amortPompeRate:     f.amortPompe,
+    amortPompeRate:     AMORT_POMPE_RATE,
     amortPompeH:        Math.round(amortPompeH * 100) / 100,
     amortPompeF:        Math.round(amortPompeF),
     amortCentraleRate:  f.amortCentrale,
     amortCentraleH:     Math.round(amortCentraleH * 100) / 100,
     amortCentraleF:     Math.round(amortCentraleF),
-    amortGroupeRate:    f.amortGroupe,
+    amortGroupeRate:    AMORT_GROUPE_RATE,
     amortGroupeH:       Math.round(amortGroupeH * 100) / 100,
     amortGroupeF:       Math.round(amortGroupeF),
-    amortChargeuseRate: f.amortChargeuse,
+    amortChargeuseRate: AMORT_CHARGEUSE_RATE,
     amortChargeuseH:    Math.round(amortChargeuseH * 100) / 100,
     amortChargeuseF:    Math.round(amortChargeuseF),
 
@@ -247,4 +277,4 @@ const genererReferenceCommande = () => {
   return `CMD-${year}${month}-${rand}`;
 };
 
-module.exports = { calculerBesoinsCommande, genererReferenceCommande, getZoneInfo };
+module.exports = { calculerBesoinsCommande, genererReferenceCommande, getZoneInfo, getBordereauPrixUnitaire, TARIF_BORDEREAU };

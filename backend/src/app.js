@@ -21,15 +21,10 @@ const usersRoutes = require('./modules/users/users.routes');
 
 // Phase 2 Routes
 const stocksRoutes = require('./modules/stocks/stocks.routes');
-const productionRoutes = require('./modules/production/production.routes');
 const equipementsRoutes = require('./modules/equipements/equipements.routes');
 const livraisonsRoutes = require('./modules/livraisons/livraisons.routes');
 const paiementsRoutes = require('./modules/paiements/paiements.routes');
 const rapportsRoutes = require('./modules/rapports/rapports.routes');
-
-// Phase 3 Routes
-const analyticsRoutes = require('./modules/analytics/analytics.routes');
-const alertesRoutes = require('./modules/alertes/alertes.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -75,15 +70,10 @@ app.use('/api/users', usersRoutes);
 
 // ─── Routes Phase 2 ──────────────────────────────────
 app.use('/api/stocks', stocksRoutes);
-app.use('/api/production', productionRoutes);
 app.use('/api/equipements', equipementsRoutes);
 app.use('/api/livraisons', livraisonsRoutes);
 app.use('/api/paiements', paiementsRoutes);
 app.use('/api/rapports', rapportsRoutes);
-
-// ─── Routes Phase 3 ──────────────────────────────────
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/alertes', alertesRoutes);
 
 // ─── Paramètres ERP ──────────────────────────────────
 app.use('/api/parametres', require('./modules/parametres/parametres.routes'));
@@ -139,7 +129,7 @@ server.listen(PORT, () => {
   logger.info(`🚀 AMP BETON ERP v2.0 démarré — Port ${PORT}`);
   logger.info(`🌍 Mode : ${process.env.NODE_ENV || 'development'}`);
   logger.info(`📡 WebSocket temps réel activé`);
-  logger.info(`📦 Phase 2 : Production, Stocks, Équipements, Livraisons, Paiements`);
+  logger.info(`📦 Phase 2 : Stocks, Équipements, Livraisons, Paiements`);
 
   // Démarrer le bot WhatsApp après 20s pour laisser le pool DB se stabiliser
   setTimeout(() => {

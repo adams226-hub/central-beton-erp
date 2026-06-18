@@ -26,6 +26,11 @@ const enregistrerEntree = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, message: 'Entrée stock enregistrée', data: result });
 });
 
+const enregistrerSortie = asyncHandler(async (req, res) => {
+  const result = await service.enregistrerSortie(req.body, req.user.id);
+  res.status(201).json({ success: true, message: 'Sortie stock enregistrée', data: result });
+});
+
 const ajusterStock = asyncHandler(async (req, res) => {
   const result = await service.ajusterStock(req.body, req.user.id);
   res.json({ success: true, message: 'Stock ajusté', data: result });
@@ -36,4 +41,4 @@ const mettreAJourPrix = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Prix mis à jour', data: stock });
 });
 
-module.exports = { listerStocks, getAlertes, getTableauDeBord, getMouvements, enregistrerEntree, ajusterStock, mettreAJourPrix };
+module.exports = { listerStocks, getAlertes, getTableauDeBord, getMouvements, enregistrerEntree, enregistrerSortie, ajusterStock, mettreAJourPrix };

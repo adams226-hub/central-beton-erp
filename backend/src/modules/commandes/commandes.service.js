@@ -40,7 +40,6 @@ const listerCommandes = async (user, filters = {}) => {
         createdBy: { select: { nom: true, prenom: true, role: true } },
         formulation: { select: { nom: true, typeBeton: true } },
         validations: { include: { valideur: { select: { nom: true, prenom: true, role: true } } } },
-        productions: { select: { volumeProduit: true, statut: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: filters.limit ? parseInt(filters.limit) : 50,
@@ -61,16 +60,6 @@ const getCommande = async (id) => {
       validations: {
         include: { valideur: { select: { nom: true, prenom: true, role: true } } },
         orderBy: { createdAt: 'asc' },
-      },
-      productions: {
-        select: {
-          id: true, reference: true, statut: true,
-          volumePlanifie: true, volumeProduit: true,
-          dateDebut: true, dateFin: true, dureeHeures: true,
-          rendement: true, observations: true,
-          operateur: { select: { nom: true, prenom: true } },
-        },
-        orderBy: { createdAt: 'desc' },
       },
       livraisons: {
         select: {

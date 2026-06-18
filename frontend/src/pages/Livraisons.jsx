@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, AlertTriangle, Navigation, FileDown, Search, X } from 'lucide-react';
+import { Truck, Plus, MapPin, Clock, CheckCircle, XCircle, FileDown, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { livraisonsAPI, commandesAPI, equipementsAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -11,9 +11,7 @@ import { cn } from '../lib/utils';
 
 const STATUT_CFG = {
   PLANIFIEE: { color: 'bg-blue-100 text-blue-800', dot: 'bg-blue-500', label: 'Planifiée' },
-  EN_ROUTE: { color: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500 animate-pulse', label: 'En route' },
   LIVREE: { color: 'bg-green-100 text-green-800', dot: 'bg-green-500', label: 'Livrée' },
-  RETARD: { color: 'bg-red-100 text-red-800', dot: 'bg-red-500', label: 'En retard' },
   ANNULEE: { color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400', label: 'Annulée' },
 };
 
@@ -24,7 +22,7 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
   const { data: commandes, isLoading: cmdLoading } = useQuery({
     queryKey: ['commandes-livraison'],
     queryFn: () => commandesAPI.lister({ limit: 200 }),
-    select: (r) => r.data?.data?.commandes?.filter((c) => ['EN_PRODUCTION', 'VALIDEE'].includes(c.statut)) ?? [],
+    select: (r) => r.data?.data?.commandes?.filter((c) => ['EN_PRODUCTION', 'VALIDEE', 'PRODUCTION_TERMINEE'].includes(c.statut)) ?? [],
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -81,7 +79,7 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Chauffeur</label>
-              <input value={form.chauffeur} onChange={(e) => setForm({ ...form, chauffeur: e.target.value })} className="amp-input text-sm" placeholder="Nom du chauffeur" />
+              <input value={form.chauffeur} onChange={(e) => setForm({ ...form, chauffeur: e.target.value })} className="amp-input text-sm" />
             </div>
           </div>
           <div>
@@ -90,7 +88,7 @@ const PlanifierModal = ({ onSuccess, onClose }) => {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Adresse de livraison</label>
-            <input value={form.adresseChantier} onChange={(e) => setForm({ ...form, adresseChantier: e.target.value })} className="amp-input text-sm" placeholder="Adresse du chantier" />
+            <input value={form.adresseChantier} onChange={(e) => setForm({ ...form, adresseChantier: e.target.value })} className="amp-input text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Observations</label>
@@ -136,7 +134,7 @@ const LivrerModal = ({ livraison, onSuccess, onClose }) => {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Observations</label>
-            <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={3} className="amp-input text-sm resize-none" placeholder="Conditions de livraison, remarques client..." />
+            <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={3} className="amp-input text-sm resize-none" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={loading} className="flex-1 bg-green-700 hover:bg-green-800 text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-60">
@@ -150,23 +148,21 @@ const LivrerModal = ({ livraison, onSuccess, onClose }) => {
   );
 };
 
-const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, onExport, canEdit }) => {
+const LivraisonCard = ({ liv, onLivrer, onAnnuler, onExport, canEdit }) => {
   const cfg = STATUT_CFG[liv.statut] || STATUT_CFG.PLANIFIEE;
-  const isActive = liv.statut === 'EN_ROUTE';
-  const canConfirm = liv.statut === 'EN_ROUTE';
-  const canStart = liv.statut === 'PLANIFIEE';
-  const canCancel = ['PLANIFIEE', 'EN_ROUTE'].includes(liv.statut);
+  const canConfirm = liv.statut === 'PLANIFIEE';
+  const canCancel = liv.statut === 'PLANIFIEE';
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn('amp-card p-5', isActive && 'border-amber-300 shadow-amber-100 shadow-md')}
+      className="amp-card p-5"
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-3">
-          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', isActive ? 'bg-amber-100' : 'bg-gray-100')}>
-            <Truck size={20} className={isActive ? 'text-amber-600' : 'text-gray-500'} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+            <Truck size={20} className="text-gray-500" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -199,13 +195,8 @@ const LivraisonCard = ({ liv, onDemarrer, onLivrer, onAnnuler, onExport, canEdit
         </div>
       </div>
 
-      {canEdit && (canStart || canConfirm || canCancel) && (
+      {canEdit && (canConfirm || canCancel) && (
         <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-          {canStart && (
-            <button onClick={() => onDemarrer(liv.id)} className="flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1.5 rounded-lg font-medium">
-              <Navigation size={12} /> Démarrer
-            </button>
-          )}
           {canConfirm && (
             <button onClick={() => onLivrer(liv)} className="flex items-center gap-1.5 text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg font-medium">
               <CheckCircle size={12} /> Confirmer livraison
@@ -257,14 +248,6 @@ const Livraisons = () => {
 
   const canEdit = hasPermission('livraison:write');
 
-  const demarrer = async (id) => {
-    try {
-      await livraisonsAPI.demarrer(id);
-      toast.success('Livraison démarrée — toupie en route');
-      qc.invalidateQueries({ queryKey: ['livraisons'] });
-    } catch (err) { toast.error(err.response?.data?.message || 'Erreur'); }
-  };
-
   const annuler = async (id) => {
     if (!window.confirm('Annuler cette livraison ?')) return;
     try {
@@ -299,26 +282,13 @@ const Livraisons = () => {
 
   if (isLoading) return <PageLoader />;
 
-  const enRoute = livraisonsAll?.filter((l) => l.statut === 'EN_ROUTE') || [];
-
   return (
     <div className="space-y-5">
-      {/* Alerte en route */}
-      {enRoute.length > 0 && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-center gap-3">
-          <Navigation size={18} className="text-amber-600 flex-shrink-0 animate-pulse" />
-          <p className="text-sm text-amber-800 font-medium">
-            {enRoute.length} toupie(s) en route : {enRoute.map((l) => l.chauffeur || l.equipement?.nom || l.reference).join(', ')}
-          </p>
-        </div>
-      )}
-
       {/* KPIs — always based on full unfiltered data */}
       {livraisonsAll && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'Planifiées', value: livraisonsAll.filter((l) => l.statut === 'PLANIFIEE').length, color: 'text-blue-700' },
-            { label: 'En route', value: livraisonsAll.filter((l) => l.statut === 'EN_ROUTE').length, color: 'text-amber-700' },
             { label: 'Livrées', value: livraisonsAll.filter((l) => l.statut === 'LIVREE').length, color: 'text-green-700' },
             { label: 'Volume livré (m³)', value: livraisonsAll.filter((l) => l.volumeReel).reduce((a, l) => a + (l.volumeReel || 0), 0).toFixed(1), color: 'text-gray-800' },
           ].map(({ label, value, color }) => (
@@ -334,7 +304,7 @@ const Livraisons = () => {
       <div className="amp-card p-4 space-y-3">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="flex border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-            {[['', 'Toutes'], ['PLANIFIEE', 'Planifiées'], ['EN_ROUTE', 'En route'], ['LIVREE', 'Livrées'], ['ANNULEE', 'Annulées']].map(([v, l]) => (
+            {[['', 'Toutes'], ['PLANIFIEE', 'Planifiées'], ['LIVREE', 'Livrées'], ['ANNULEE', 'Annulées']].map(([v, l]) => (
               <button key={v} onClick={() => setFiltre(v)} className={cn('px-3 py-1.5 text-sm font-medium', filtre === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50')}>
                 {l}
               </button>
@@ -343,7 +313,7 @@ const Livraisons = () => {
           <div className="relative flex-1 min-w-[180px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Client, référence, chauffeur..." className="amp-input pl-8 text-sm" />
+              className="amp-input pl-8 text-sm" />
           </div>
           <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="amp-input w-auto text-sm" title="Date début" />
           <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="amp-input w-auto text-sm" title="Date fin" />
@@ -373,7 +343,6 @@ const Livraisons = () => {
           <LivraisonCard
             key={liv.id}
             liv={liv}
-            onDemarrer={demarrer}
             onLivrer={setLivrerTarget}
             onAnnuler={annuler}
             onExport={exportEtat}

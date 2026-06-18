@@ -10,17 +10,10 @@ import Formulations from './pages/Formulations';
 import Notifications from './pages/Notifications';
 import { PageLoader } from './components/common/LoadingSpinner';
 
-const Production   = lazy(() => import('./pages/Production'));
 const Utilisateurs = lazy(() => import('./pages/Utilisateurs'));
-const Stocks = lazy(() => import('./pages/Stocks'));
-const Equipements = lazy(() => import('./pages/Equipements'));
 const Livraisons = lazy(() => import('./pages/Livraisons'));
 const Paiements = lazy(() => import('./pages/Paiements'));
-const Rapports = lazy(() => import('./pages/Rapports'));
 const DashboardPDG = lazy(() => import('./pages/DashboardPDG'));
-const Analytiques = lazy(() => import('./pages/Analytiques'));
-const Previsions = lazy(() => import('./pages/Previsions'));
-const Alertes = lazy(() => import('./pages/Alertes'));
 const Parametres = lazy(() => import('./pages/Parametres'));
 
 const PrivateRoute = ({ children, permission }) => {
@@ -57,16 +50,9 @@ const App = () => (
           <Route path="commandes" element={<PrivateRoute permission="commande:read"><Commandes /></PrivateRoute>} />
           <Route path="commandes/:id" element={<PrivateRoute permission="commande:read"><CommandeDetail /></PrivateRoute>} />
           <Route path="formulations" element={<PrivateRoute permission="formulation:read"><Formulations /></PrivateRoute>} />
-          <Route path="production" element={<PrivateRoute permission="production:read"><Suspense fallback={<PageLoader />}><Production /></Suspense></PrivateRoute>} />
-          <Route path="stocks" element={<PrivateRoute permission="stock:read"><Suspense fallback={<PageLoader />}><Stocks /></Suspense></PrivateRoute>} />
-          <Route path="equipements" element={<PrivateRoute permission="equipement:read"><Suspense fallback={<PageLoader />}><Equipements /></Suspense></PrivateRoute>} />
           <Route path="livraisons" element={<PrivateRoute permission="livraison:read"><Suspense fallback={<PageLoader />}><Livraisons /></Suspense></PrivateRoute>} />
           <Route path="paiements" element={<PrivateRoute permission="paiement:read"><Suspense fallback={<PageLoader />}><Paiements /></Suspense></PrivateRoute>} />
-          <Route path="rapports" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Rapports /></Suspense></PrivateRoute>} />
           <Route path="dashboard-pdg" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><DashboardPDG /></Suspense></PrivateRoute>} />
-          <Route path="analytiques" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Analytiques /></Suspense></PrivateRoute>} />
-          <Route path="previsions" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Previsions /></Suspense></PrivateRoute>} />
-          <Route path="alertes" element={<Suspense fallback={<PageLoader />}><Alertes /></Suspense>} />
           <Route path="parametres" element={<Suspense fallback={<PageLoader />}><Parametres /></Suspense>} />
           <Route path="utilisateurs" element={<PrivateRoute permission="user:read"><Suspense fallback={<PageLoader />}><Utilisateurs /></Suspense></PrivateRoute>} />
           <Route path="notifications" element={<Notifications />} />

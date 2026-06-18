@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, AlertTriangle, TrendingDown, TrendingUp, Plus, History, RefreshCw } from 'lucide-react';
+import { Package, AlertTriangle, TrendingDown, TrendingUp, Plus, History, RefreshCw, Minus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { stocksAPI } from '../api';
 import { PageLoader } from '../components/common/LoadingSpinner';
@@ -19,7 +19,9 @@ const TYPE_MOUV_ICONS = {
   ENTREE_ACHAT: { icon: '⬆️', label: 'Achat', color: 'text-green-600' },
   ENTREE_RETOUR: { icon: '↩️', label: 'Retour', color: 'text-green-500' },
   SORTIE_PRODUCTION: { icon: '⬇️', label: 'Production', color: 'text-blue-600' },
+  SORTIE_COMMANDE: { icon: '📦', label: 'Sortie commande', color: 'text-blue-500' },
   SORTIE_PERTE: { icon: '❌', label: 'Perte', color: 'text-red-500' },
+  SORTIE_AUTRE: { icon: '↗️', label: 'Autre sortie', color: 'text-orange-500' },
   INVENTAIRE: { icon: '📋', label: 'Inventaire', color: 'text-gray-600' },
   AJUSTEMENT: { icon: '🔧', label: 'Ajustement', color: 'text-purple-600' },
 };
@@ -77,6 +79,95 @@ const EntreeModal = ({ stock, onSuccess, onClose }) => {
   );
 };
 
+const SortieModal = ({ stock, onSuccess, onClose }) => {
+  const [form, setForm] = useState({ quantite: '', type: 'SORTIE_AUTRE', motif: '', referenceCommande: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.quantite || parseFloat(form.quantite) <= 0) return toast.error('Quantité invalide');
+    if (form.type !== 'SORTIE_COMMANDE' && !form.motif) return toast.error('Motif requis');
+    if (form.type === 'SORTIE_COMMANDE' && !form.referenceCommande) return toast.error('Référence commande requise');
+    setLoading(true);
+    try {
+      await stocksAPI.enregistrerSortie({ stockId: stock.id, ...form });
+      toast.success(`-${form.quantite} ${stock.unite} sortis — ${stock.designation}`);
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <Minus size={18} className="text-red-600" /> Sortie stock : {stock.designation}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Type de sortie *</label>
+            <select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value, referenceCommande: '' })}
+              className="amp-input text-sm"
+            >
+              <option value="SORTIE_COMMANDE">Sortie liée à une commande</option>
+              <option value="SORTIE_PERTE">Perte / Casse</option>
+              <option value="SORTIE_AUTRE">Autre (usage interne, PDG, etc.)</option>
+            </select>
+          </div>
+          {form.type === 'SORTIE_COMMANDE' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Référence commande *</label>
+              <input
+                value={form.referenceCommande}
+                onChange={(e) => setForm({ ...form, referenceCommande: e.target.value })}
+                className="amp-input text-sm"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Quantité ({stock.unite}) *</label>
+            <input
+              value={form.quantite}
+              onChange={(e) => setForm({ ...form, quantite: e.target.value })}
+              className="amp-input text-sm"
+              type="number"
+              step="0.01"
+            />
+            {form.quantite && parseFloat(form.quantite) > stock.quantite && (
+              <p className="text-xs text-red-500 mt-1">⚠ Stock dispo : {stock.quantite.toLocaleString('fr-FR')} {stock.unite}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Motif {form.type !== 'SORTIE_COMMANDE' ? '*' : '(optionnel)'}
+            </label>
+            <input
+              value={form.motif}
+              onChange={(e) => setForm({ ...form, motif: e.target.value })}
+              className="amp-input text-sm"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-red-700 hover:bg-red-800 text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-60"
+            >
+              {loading ? 'Enregistrement...' : 'Confirmer la sortie'}
+            </button>
+            <button type="button" onClick={onClose} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">
+              Annuler
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
 const MouvementsModal = ({ stock, onClose }) => {
   const { data: mouvements, isLoading } = useQuery({
     queryKey: ['mouvements', stock.id],
@@ -126,6 +217,7 @@ const Stocks = () => {
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
   const [entreeTarget, setEntreeTarget] = useState(null);
+  const [sortieTarget, setSortieTarget] = useState(null);
   const [histoTarget, setHistoTarget] = useState(null);
 
   const { data: stocks, isLoading, refetch } = useQuery({
@@ -201,9 +293,14 @@ const Stocks = () => {
                     <History size={14} />
                   </button>
                   {hasPermission('stock:write') && (
-                    <button onClick={() => setEntreeTarget(stock)} className="p-1.5 hover:bg-green-100 rounded-lg text-green-600 transition-colors" title="Entrée stock">
-                      <Plus size={14} />
-                    </button>
+                    <>
+                      <button onClick={() => setEntreeTarget(stock)} className="p-1.5 hover:bg-green-100 rounded-lg text-green-600 transition-colors" title="Entrée stock">
+                        <Plus size={14} />
+                      </button>
+                      <button onClick={() => setSortieTarget(stock)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors" title="Sortie stock">
+                        <Minus size={14} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -237,6 +334,13 @@ const Stocks = () => {
       </div>
 
       {entreeTarget && <EntreeModal stock={entreeTarget} onSuccess={onSuccess} onClose={() => setEntreeTarget(null)} />}
+      {sortieTarget && (
+        <SortieModal
+          stock={sortieTarget}
+          onSuccess={() => { setSortieTarget(null); qc.invalidateQueries({ queryKey: ['stocks'] }); qc.invalidateQueries({ queryKey: ['mouvements'] }); }}
+          onClose={() => setSortieTarget(null)}
+        />
+      )}
       {histoTarget && <MouvementsModal stock={histoTarget} onClose={() => setHistoTarget(null)} />}
     </div>
   );

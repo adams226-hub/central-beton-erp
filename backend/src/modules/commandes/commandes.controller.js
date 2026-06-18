@@ -46,9 +46,15 @@ const genererPDF = asyncHandler(async (req, res) => {
   const v = commande.volumeBeton || 0;
   const params = await parametresService.get();
 
-  // Recalcul complet avec le nouveau moteur pour avoir tous les détails PDF
+  // Recalcul complet avec options de la commande
+  const cmdOpts = {
+    includePersonnel:    commande.includePersonnel    ?? true,
+    includeRestauration: commande.includeRestauration ?? true,
+    fraisPeage:  commande.fraisPeage  ?? 0,
+    autresFrais: commande.autresFrais ?? 0,
+  };
   const calculs = f && v > 0
-    ? calculerBesoinsCommande(v, f, commande.montantCommande || 0, commande.distanceLivraison || 0, params)
+    ? calculerBesoinsCommande(v, f, commande.montantCommande || 0, commande.distanceLivraison || 0, params, commande.remisePct || 0, cmdOpts)
     : {};
 
   const fraisLoyer         = Math.round(params.loyerMensuel ?? 500000);
@@ -74,6 +80,13 @@ const genererPDF = asyncHandler(async (req, res) => {
     prixHydrofuge: f?.prixHydrofuge  ?? 2750,
     totalHydrofuge: calculs.totalHydrofuge ?? 0,
     coutHydrofuge: calculs.coutHydrofuge ?? 0,
+    coutPersonnel:     commande.coutPersonnel     ?? calculs.coutPersonnel     ?? 0,
+    fraisRestauration: commande.fraisRestauration ?? calculs.fraisRestauration ?? 0,
+    coutPeage:         commande.coutPeage         ?? calculs.coutPeage         ?? 0,
+    coutAutres:        commande.coutAutres        ?? calculs.coutAutres        ?? 0,
+    autresFraisLabel:  commande.autresFraisLabel  ?? '',
+    nbRepas:           calculs.nbRepas ?? 0,
+    prixRepas:         calculs.prixRepas ?? 1500,
   };
   const doc = generateDevis(commande, k);
   res.setHeader('Content-Type', 'application/pdf');

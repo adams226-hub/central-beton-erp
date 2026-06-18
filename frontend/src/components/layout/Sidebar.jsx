@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { alertesAPI } from '../../api';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ClipboardList, FlaskConical, Bell, Users,
   ChevronLeft, ChevronRight, Building2,
-  Factory, Package, Wrench, Truck, CreditCard, BarChart3,
-  Brain, TrendingUp, AlertTriangle, Activity, Settings,
+  Truck, CreditCard,
+  Activity, Settings,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -33,19 +31,7 @@ const NAV_GROUPS = [
   {
     label: 'Production',
     items: [
-      { path: '/production', label: 'Production', icon: Factory, permission: 'production:read' },
-      { path: '/stocks', label: 'Stocks', icon: Package, permission: 'stock:read' },
-      { path: '/equipements', label: 'Équipements', icon: Wrench, permission: 'equipement:read' },
-      { path: '/livraisons', label: 'Livraisons', icon: Truck, permission: 'livraison:read' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { path: '/analytiques', label: 'Analytiques BI', icon: TrendingUp, permission: 'rapport:read' },
-      { path: '/previsions', label: 'Prévisions IA', icon: Brain, permission: 'rapport:read' },
-      { path: '/alertes', label: 'Alertes', icon: AlertTriangle, permission: null, alertBadge: true },
-      { path: '/rapports', label: 'Rapports', icon: BarChart3, permission: 'rapport:read' },
+      { path: '/livraisons', label: 'Production et Livraison', icon: Truck, permission: 'livraison:read' },
     ],
   },
   {
@@ -65,14 +51,6 @@ const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user, hasPermission, logout } = useAuth();
   const { nonLues } = useNotifications();
-
-  const { data: alertesData } = useQuery({
-    queryKey: ['alertes-count'],
-    queryFn: () => alertesAPI.lister({ resolu: 'false', limit: 1 }),
-    select: (r) => r.data.data?.stats,
-    refetchInterval: 60000,
-  });
-  const alertesCritiques = (alertesData?.critiques || 0) + (alertesData?.avertissements || 0);
 
   return (
     <motion.aside

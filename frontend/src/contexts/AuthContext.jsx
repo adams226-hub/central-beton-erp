@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '../api';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   // Écoute l'événement envoyé par l'intercepteur axios quand le refresh échoue
   useEffect(() => {
     const handleForceLogout = () => {
+      queryClient.clear();
       setUser(null);
       setIsAuthenticated(false);
     };
@@ -49,6 +52,7 @@ export const AuthProvider = ({ children }) => {
     try { await authAPI.logout(); } catch {}
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    queryClient.clear();
     setUser(null);
     setIsAuthenticated(false);
     toast.success('Déconnexion réussie');
@@ -77,7 +81,7 @@ export const AuthProvider = ({ children }) => {
         'dashboard:read',
       ],
       CHEF_DE_SITE: [
-        'commande:read', 'commande:validate', 'commande:reject',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject',
         'formulation:read', 'formulation:create', 'formulation:update',
         'stock:read', 'stock:write',
         'production:read', 'production:write',

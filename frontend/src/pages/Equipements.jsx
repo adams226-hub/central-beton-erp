@@ -77,11 +77,11 @@ const EquipementForm = ({ initial, onSuccess, onClose }) => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
-              <input value={form.nom} onChange={(e) => set('nom', e.target.value)} className="amp-input text-sm" placeholder="Ex : Toupie BFM-03" required />
+              <input value={form.nom} onChange={(e) => set('nom', e.target.value)} className="amp-input text-sm" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Code unique *</label>
-              <input value={form.code} onChange={(e) => set('code', e.target.value)} className="amp-input text-sm" placeholder="Ex : TOUPIE-03" required disabled={isEdit} />
+              <input value={form.code} onChange={(e) => set('code', e.target.value)} className="amp-input text-sm" required disabled={isEdit} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -93,7 +93,7 @@ const EquipementForm = ({ initial, onSuccess, onClose }) => {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Marque</label>
-              <input value={form.marque} onChange={(e) => set('marque', e.target.value)} className="amp-input text-sm" placeholder="Ex : LIEBHERR" />
+              <input value={form.marque} onChange={(e) => set('marque', e.target.value)} className="amp-input text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Modèle</label>
@@ -107,7 +107,7 @@ const EquipementForm = ({ initial, onSuccess, onClose }) => {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Année d'achat</label>
-              <input type="number" value={form.anneeAchat} onChange={(e) => set('anneeAchat', e.target.value)} className="amp-input text-sm" placeholder="2024" min="2000" max="2030" />
+              <input type="number" value={form.anneeAchat} onChange={(e) => set('anneeAchat', e.target.value)} className="amp-input text-sm" min="2000" max="2030" />
             </div>
           </div>
 
@@ -125,11 +125,11 @@ const EquipementForm = ({ initial, onSuccess, onClose }) => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Révision tous les (heures)</label>
-                <input type="number" value={form.heuresRevision} onChange={(e) => set('heuresRevision', e.target.value)} className="amp-input text-sm" placeholder="500" />
+                <input type="number" value={form.heuresRevision} onChange={(e) => set('heuresRevision', e.target.value)} className="amp-input text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Conso. carburant (L/heure)</label>
-                <input type="number" step="0.1" value={form.consoCarburantHeure} onChange={(e) => set('consoCarburantHeure', e.target.value)} className="amp-input text-sm" placeholder="8" />
+                <input type="number" step="0.1" value={form.consoCarburantHeure} onChange={(e) => set('consoCarburantHeure', e.target.value)} className="amp-input text-sm" />
               </div>
             </div>
           </div>

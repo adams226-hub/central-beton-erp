@@ -94,7 +94,7 @@ const PaiementForm = ({ onSuccess, onClose }) => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">N° référence</label>
-                <input value={form.reference_ext} onChange={(e) => setForm({ ...form, reference_ext: e.target.value })} className="amp-input text-sm" placeholder="N° chèque / virement" />
+                <input value={form.reference_ext} onChange={(e) => setForm({ ...form, reference_ext: e.target.value })} className="amp-input text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Banque</label>
@@ -220,7 +220,7 @@ const Paiements = () => {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un client..." className="amp-input pl-8 text-sm"
+              className="amp-input pl-8 text-sm"
             />
           </div>
           <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} className="amp-input w-auto text-sm">

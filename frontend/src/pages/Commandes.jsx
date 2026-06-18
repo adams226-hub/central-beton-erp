@@ -115,7 +115,6 @@ const Commandes = () => {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher client, référence, chantier..."
             className="amp-input pl-9 text-sm"
           />
         </div>
@@ -284,7 +283,6 @@ const Commandes = () => {
                 value={rejectMotif}
                 onChange={(e) => setRejectMotif(e.target.value)}
                 rows={3}
-                placeholder="Expliquer la raison du rejet..."
                 className="amp-input resize-none mb-4"
               />
               <div className="flex gap-3">

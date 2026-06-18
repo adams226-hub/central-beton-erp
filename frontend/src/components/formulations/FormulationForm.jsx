@@ -8,27 +8,25 @@ import { formulationsAPI } from '../../api';
 
 const schema = z.object({
   nom: z.string().min(3, 'Nom requis'),
-  typeBeton: z.string().min(2, 'Type béton requis (ex: C25/30)'),
+  typeBeton: z.enum(['C5', 'C15', 'C20', 'C25', 'C30', 'C35', 'C40'], { required_error: 'Type béton requis' }),
   description: z.string().optional(),
   ciment: z.coerce.number().positive('Requis'),
   sable: z.coerce.number().positive('Requis'),
   gravier515: z.coerce.number().positive('Requis'),
   gravier1525: z.coerce.number().positive('Requis'),
   eau: z.coerce.number().positive('Requis'),
-  hydrofuge: z.coerce.number().min(0).default(0),
-  powerflow: z.coerce.number().min(0).default(0),
+  hydrofuge:    z.coerce.number().min(0).default(0),
+  retardateur:  z.coerce.number().min(0).default(0),
+  accelerateur: z.coerce.number().min(0).default(0),
+  powerflow:    z.coerce.number().min(0).default(0),
   prixCiment: z.coerce.number().positive('Requis'),
   prixSable: z.coerce.number().positive('Requis'),
   prixGravier515: z.coerce.number().positive('Requis'),
   prixGravier1525: z.coerce.number().positive('Requis'),
-  prixHydrofuge: z.coerce.number().min(0).default(2750),
-  prixPowerflow: z.coerce.number().min(0).default(1750),
-  // Options
-  includePersonnel:    z.boolean().default(true),
-  includeRestauration: z.boolean().default(true),
-  fraisPeage:   z.coerce.number().min(0).default(0),
-  autresFrais:  z.coerce.number().min(0).default(0),
-  autresFraisLabel: z.string().optional(),
+  prixHydrofuge:    z.coerce.number().min(0).default(2750),
+  prixPowerflow:    z.coerce.number().min(0).default(1750),
+  prixRetardateur:  z.coerce.number().min(0).default(0),
+  prixAccelerateur: z.coerce.number().min(0).default(0),
   densiteSable: z.coerce.number().positive().default(1.5),
   // Helper sable (non stocké)
   sablePoids:   z.coerce.number().min(0).optional(),
@@ -60,8 +58,10 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
       sablePoids: +(formulation.sable * (formulation.densiteSable ?? 1.5) * 1000).toFixed(1),
       // Eau, powerflow, hydrofuge : L/m³ sans conversion
       eau:       formulation.eau,
-      hydrofuge: formulation.hydrofuge,
-      powerflow: formulation.powerflow,
+      hydrofuge:    formulation.hydrofuge,
+      retardateur:  formulation.retardateur  || 0,
+      accelerateur: formulation.accelerateur || 0,
+      powerflow:    formulation.powerflow,
       includePersonnel:    formulation.includePersonnel !== false,
       includeRestauration: formulation.includeRestauration !== false,
       fraisPeage:   formulation.fraisPeage   ?? 0,
@@ -71,7 +71,8 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
       motif: '',
     } : {
       prixCiment: 105500, prixSable: 16000, prixGravier515: 11500, prixGravier1525: 11500,
-      prixHydrofuge: 2750, prixPowerflow: 1750,
+      prixHydrofuge: 2750, prixPowerflow: 1750, prixRetardateur: 0, prixAccelerateur: 0,
+      retardateur: 0, accelerateur: 0,
       includePersonnel: true, includeRestauration: true,
       fraisPeage: 0, autresFrais: 0, densiteSable: 1.5, sablePoids: '',
     },
@@ -101,8 +102,10 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
       sable:      raw.sable,
       // Eau, powerflow, hydrofuge en L/m³ — pas de conversion
       eau:       raw.eau,
-      hydrofuge: raw.hydrofuge,
-      powerflow: raw.powerflow,
+      hydrofuge:    raw.hydrofuge,
+      retardateur:  raw.retardateur,
+      accelerateur: raw.accelerateur,
+      powerflow:    raw.powerflow,
     };
     try {
       if (isEdit) {
@@ -127,11 +130,20 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Identification</h3>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nom" name="nom" register={register} error={errors.nom} placeholder="Ex: Béton C25/30 Standard" />
-          <Field label="Type béton" name="typeBeton" register={register} error={errors.typeBeton} placeholder="Ex: C25/30" />
+          <Field label="Nom" name="nom" register={register} error={errors.nom} />
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Type béton</label>
+            <select {...register('typeBeton')} className="amp-input text-sm">
+              <option value="">— Choisir —</option>
+              {['C5', 'C15', 'C20', 'C25', 'C30', 'C35', 'C40'].map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            {errors.typeBeton && <p className="text-red-500 text-[10px] mt-0.5">{errors.typeBeton.message}</p>}
+          </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-            <textarea {...register('description')} rows={2} className="amp-input text-sm resize-none" placeholder="Description optionnelle..." />
+            <textarea {...register('description')} rows={2} className="amp-input text-sm resize-none" />
           </div>
         </div>
       </div>
@@ -145,52 +157,31 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
 
         {/* Ciment & Graviers en kg/m³ */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-          <Field label="Ciment" unit="kg/m³" name="ciment" register={register} error={errors.ciment} type="number" step="1" placeholder="ex: 530" />
-          <Field label="Gravier 5/15" unit="kg/m³" name="gravier515" register={register} error={errors.gravier515} type="number" step="1" placeholder="ex: 319" />
-          <Field label="Gravier 15/25" unit="kg/m³" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="1" placeholder="ex: 619" />
+          <Field label="Ciment" unit="kg/m³" name="ciment" register={register} error={errors.ciment} type="number" step="1" />
+          <Field label="Gravier 5/15" unit="kg/m³" name="gravier515" register={register} error={errors.gravier515} type="number" step="1" />
+          <Field label="Gravier 15/25" unit="kg/m³" name="gravier1525" register={register} error={errors.gravier1525} type="number" step="1" />
         </div>
 
         {/* Sable : poids → volume auto */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
           <p className="text-xs font-semibold text-amber-700 mb-2">Sable — calculer le volume depuis le poids</p>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Poids sable" unit="kg/m³" name="sablePoids" register={register} type="number" step="1" placeholder="ex: 702" />
-            <Field label="Densité sable" unit="t/m³" name="densiteSable" register={register} type="number" step="0.01" placeholder="1.5" />
+            <Field label="Poids sable" unit="kg/m³" name="sablePoids" register={register} type="number" step="1" />
+            <Field label="Densité sable" unit="t/m³" name="densiteSable" register={register} type="number" step="0.01" />
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Volume sable <span className="text-gray-400">(m³/m³ — auto)</span></label>
-              <input {...register('sable')} type="number" step="0.0001" className="amp-input text-sm font-medium text-blue-700" placeholder="auto-calculé" />
+              <input {...register('sable')} type="number" step="0.0001" className="amp-input text-sm font-medium text-blue-700" />
             </div>
           </div>
         </div>
 
         {/* Liquides en L/m³ */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Field label="Eau" unit="L/m³" name="eau" register={register} error={errors.eau} type="number" step="1" placeholder="ex: 175" />
-          <Field label="Hydrofuge" unit="L/m³" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="0.1" placeholder="ex: 0" />
-          <Field label="Powerflow 6425" unit="L/m³" name="powerflow" register={register} error={errors.powerflow} type="number" step="0.1" placeholder="ex: 5.3" />
-        </div>
-      </div>
-
-      {/* Options coûts */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Options de coûts</h3>
-        <div className="space-y-2 mb-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...register('includePersonnel')} className="w-4 h-4 rounded accent-blue-600" />
-            <span className="text-sm text-gray-700">Inclure <strong>frais de personnel</strong> (245 FCFA/m³)</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...register('includeRestauration')} className="w-4 h-4 rounded accent-blue-600" />
-            <span className="text-sm text-gray-700">Inclure <strong>frais de restauration</strong> (12 plats × 1 500 FCFA)</span>
-          </label>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Field label="Frais de péage" unit="FCFA/voyage" name="fraisPeage" register={register} type="number" step="500" placeholder="ex: 15000" />
-          <Field label="Autres frais" unit="FCFA fixe" name="autresFrais" register={register} type="number" step="500" placeholder="ex: 50000" />
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Libellé autres frais</label>
-            <input {...register('autresFraisLabel')} className="amp-input text-sm" placeholder="ex: Gardiennage, Sécurité..." />
-          </div>
+          <Field label="Eau" unit="L/m³" name="eau" register={register} error={errors.eau} type="number" step="1" />
+          <Field label="Hydrofuge" unit="L/m³" name="hydrofuge" register={register} error={errors.hydrofuge} type="number" step="0.1" />
+          <Field label="Powerflow 6425" unit="L/m³" name="powerflow" register={register} error={errors.powerflow} type="number" step="0.1" />
+          <Field label="Retardateur de prise" unit="L/m³" name="retardateur" register={register} type="number" step="0.1" />
+          <Field label="Accélérateur de prise" unit="L/m³" name="accelerateur" register={register} type="number" step="0.1" />
         </div>
       </div>
 
@@ -204,13 +195,15 @@ const FormulationForm = ({ formulation, onSuccess, onCancel }) => {
           <Field label="Prix gravier 15/25" unit="FCFA/t" name="prixGravier1525" register={register} error={errors.prixGravier1525} type="number" />
           <Field label="Prix hydrofuge" unit="FCFA/L" name="prixHydrofuge" register={register} error={errors.prixHydrofuge} type="number" />
           <Field label="Prix Powerflow" unit="FCFA/L" name="prixPowerflow" register={register} error={errors.prixPowerflow} type="number" />
+          <Field label="Prix retardateur" unit="FCFA/L" name="prixRetardateur" register={register} type="number" />
+          <Field label="Prix accélérateur" unit="FCFA/L" name="prixAccelerateur" register={register} type="number" />
         </div>
       </div>
 
       {isEdit && (
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Motif de modification *</label>
-          <input {...register('motif')} className="amp-input text-sm" placeholder="Ex: Mise à jour prix ciment juillet 2026" />
+          <input {...register('motif')} className="amp-input text-sm" />
         </div>
       )}
 

@@ -11,7 +11,7 @@ const lister = async (filters = {}) => {
     where,
     include: {
       maintenances: { orderBy: { createdAt: 'desc' }, take: 3 },
-      _count: { select: { productions: true, maintenances: true } },
+      _count: { select: { maintenances: true } },
     },
     orderBy: { type: 'asc' },
   });
@@ -45,7 +45,6 @@ const getOne = async (id) => {
     where: { id },
     include: {
       maintenances: { include: { user: { select: { nom: true, prenom: true } } }, orderBy: { dateDebut: 'desc' } },
-      productions: { include: { production: { select: { reference: true, dateDebut: true } } }, take: 10 },
     },
   });
   if (!e) throw Object.assign(new Error('Équipement introuvable'), { statusCode: 404 });
@@ -172,10 +171,6 @@ const enregistrerMaintenance = async (equipementId, data, userId) => {
 const desactiver = async (id, userId) => {
   const equip = await prisma.equipement.findUnique({ where: { id } });
   if (!equip) throw Object.assign(new Error('Équipement introuvable'), { statusCode: 404 });
-  const enCours = await prisma.productionEquipement.count({
-    where: { equipementId: id, production: { statut: { in: ['EN_COURS', 'CHARGEMENT', 'LIVRAISON'] } } },
-  });
-  if (enCours > 0) throw Object.assign(new Error('Impossible : équipement actuellement en production'), { statusCode: 400 });
   return prisma.equipement.update({ where: { id }, data: { isActive: false, statut: 'HORS_SERVICE' } });
 };
 
