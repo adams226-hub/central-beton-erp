@@ -11,10 +11,13 @@ import Notifications from './pages/Notifications';
 import { PageLoader } from './components/common/LoadingSpinner';
 
 const Utilisateurs = lazy(() => import('./pages/Utilisateurs'));
-const Livraisons = lazy(() => import('./pages/Livraisons'));
-const Paiements = lazy(() => import('./pages/Paiements'));
+const Livraisons   = lazy(() => import('./pages/Livraisons'));
+const Paiements    = lazy(() => import('./pages/Paiements'));
 const DashboardPDG = lazy(() => import('./pages/DashboardPDG'));
-const Parametres = lazy(() => import('./pages/Parametres'));
+const Parametres   = lazy(() => import('./pages/Parametres'));
+const Stocks       = lazy(() => import('./pages/Stocks'));
+const Equipements  = lazy(() => import('./pages/Equipements'));
+const Rapports     = lazy(() => import('./pages/Rapports'));
 
 const PrivateRoute = ({ children, permission }) => {
   const { isAuthenticated, loading, hasPermission } = useAuth();
@@ -55,6 +58,9 @@ const App = () => (
           <Route path="dashboard-pdg" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><DashboardPDG /></Suspense></PrivateRoute>} />
           <Route path="parametres" element={<Suspense fallback={<PageLoader />}><Parametres /></Suspense>} />
           <Route path="utilisateurs" element={<PrivateRoute permission="user:read"><Suspense fallback={<PageLoader />}><Utilisateurs /></Suspense></PrivateRoute>} />
+          <Route path="stocks" element={<PrivateRoute permission="stock:read"><Suspense fallback={<PageLoader />}><Stocks /></Suspense></PrivateRoute>} />
+          <Route path="equipements" element={<PrivateRoute permission="equipement:read"><Suspense fallback={<PageLoader />}><Equipements /></Suspense></PrivateRoute>} />
+          <Route path="rapports" element={<PrivateRoute permission="rapport:read"><Suspense fallback={<PageLoader />}><Rapports /></Suspense></PrivateRoute>} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

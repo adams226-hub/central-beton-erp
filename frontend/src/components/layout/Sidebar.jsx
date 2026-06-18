@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ClipboardList, FlaskConical, Bell, Users,
   ChevronLeft, ChevronRight, Building2,
-  Truck, CreditCard,
+  Truck, CreditCard, Package, Wrench, BarChart3,
   Activity, Settings,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,9 +29,12 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Production',
+    label: 'Opérations',
     items: [
-      { path: '/livraisons', label: 'Production et Livraison', icon: Truck, permission: 'livraison:read' },
+      { path: '/livraisons',   label: 'Livraisons',  icon: Truck,     permission: 'livraison:read' },
+      { path: '/stocks',       label: 'Stocks',      icon: Package,   permission: 'stock:read' },
+      { path: '/equipements',  label: 'Équipements', icon: Wrench,    permission: 'equipement:read' },
+      { path: '/rapports',     label: 'Rapports',    icon: BarChart3, permission: 'rapport:read' },
     ],
   },
   {
@@ -111,11 +114,6 @@ const Sidebar = () => {
                       {badge && nonLues > 0 && (
                         <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center font-bold">
                           {nonLues > 9 ? '9+' : nonLues}
-                        </span>
-                      )}
-                      {alertBadge && alertesCritiques > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center font-bold animate-pulse">
-                          {alertesCritiques > 9 ? '9+' : alertesCritiques}
                         </span>
                       )}
                     </div>
