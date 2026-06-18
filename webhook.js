@@ -8,7 +8,7 @@ const PORT   = 9000;
 const UPDATE_CMD = [
   'cd /opt/amp-beton',
   'git pull origin main',
-  'cd frontend && VITE_API_URL=http://92.113.29.87:5000/api VITE_SOCKET_URL=http://92.113.29.87:5000 npm run build',
+  'cd frontend && VITE_API_URL=https://ampbeton.com/api VITE_SOCKET_URL=https://ampbeton.com npm run build',
   'cd ../backend && npm install',
   'npx prisma generate',
   'pm2 restart amp-backend',
