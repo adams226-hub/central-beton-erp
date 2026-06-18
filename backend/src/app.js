@@ -10,7 +10,7 @@ const compression = require('compression');
 const { initSocket } = require('./config/socket');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./config/logger');
-const { initializeWhatsApp, getWhatsAppStatus, resetWhatsAppSession } = require('../whatsapp');
+const { initializeWhatsApp, getWhatsAppStatus, resetWhatsAppSession, sendWhatsAppMessage } = require('../whatsapp');
 
 // Phase 1 Routes
 const authRoutes = require('./modules/auth/auth.routes');
@@ -98,6 +98,14 @@ app.get('/api/whatsapp/status', (req, res) => res.json(getWhatsAppStatus()));
 app.post('/api/whatsapp/reset', async (req, res) => {
   const result = await resetWhatsAppSession();
   res.json(result);
+});
+
+app.post('/api/whatsapp/test', async (req, res) => {
+  const { phone, message } = req.body;
+  const num = phone || '53254074';
+  const msg = message || 'Test AMP BETON — WhatsApp opérationnel ✅';
+  const result = await sendWhatsAppMessage(num, msg);
+  res.json({ phone: num, result, status: getWhatsAppStatus() });
 });
 
 app.post('/api/whatsapp/telegram-qr', async (req, res) => {
