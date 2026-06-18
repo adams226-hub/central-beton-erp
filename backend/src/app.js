@@ -112,6 +112,17 @@ app.post('/api/whatsapp/telegram-qr', async (req, res) => {
   });
 });
 
+// ─── Servir le frontend React en production ───────────
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  const frontendDist = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 app.use(notFound);
 app.use(errorHandler);
 
