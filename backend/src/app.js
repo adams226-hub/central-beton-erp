@@ -1,14 +1,16 @@
 require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
+const express    = require('express');
+const http       = require('http');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const morgan     = require('morgan');
+const rateLimit  = require('express-rate-limit');
+const compression = require('compression');
 
 const { initSocket } = require('./config/socket');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./config/logger');
+const { initializeWhatsApp, getWhatsAppStatus, resetWhatsAppSession } = require('../whatsapp');
 
 // Phase 1 Routes
 const authRoutes = require('./modules/auth/auth.routes');
@@ -37,15 +39,18 @@ const io = initSocket(server);
 app.set('io', io);
 
 // ─── Middlewares globaux ──────────────────────────────
+app.use(compression()); // gzip — réduit les réponses JSON de 70-90%
 app.use(helmet({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: false }));
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL, 'https://centralabeton.netlify.app'].filter(Boolean)
+  ? [process.env.FRONTEND_URL, 'https://centralabeton.netlify.app', 'http://92.113.29.87'].filter(Boolean)
   : ['http://localhost:5173', 'http://localhost:3000'];
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     if (origin.endsWith('.netlify.app') || origin.endsWith('.onrender.com')) return cb(null, true);
+    // Accepter les IPs directes (VPS sans domaine)
+    if (/^https?:\/\/\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(origin)) return cb(null, true);
     cb(new Error(`CORS bloqué : ${origin}`));
   },
   credentials: true,
@@ -88,6 +93,25 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'AMP BETON ERP v2.0 — Opérationnel', timestamp: new Date().toISOString() });
 });
 
+// WhatsApp status
+app.get('/api/whatsapp/status', (req, res) => res.json(getWhatsAppStatus()));
+app.post('/api/whatsapp/reset', async (req, res) => {
+  const result = await resetWhatsAppSession();
+  res.json(result);
+});
+
+app.post('/api/whatsapp/telegram-qr', async (req, res) => {
+  const result = await resetWhatsAppSession();
+  setTimeout(() => {
+    initializeWhatsApp().catch(e => logger.warn(`[WhatsApp] Nouvelle génération QR : ${e.message}`));
+  }, 1000);
+  res.json({
+    success: true,
+    message: 'Demande de nouveau QR Code envoyée sur Telegram. Le bot WhatsApp redémarre pour générer un nouveau code.',
+    resetResult: result,
+  });
+});
+
 app.use(notFound);
 app.use(errorHandler);
 
@@ -97,6 +121,11 @@ server.listen(PORT, () => {
   logger.info(`🌍 Mode : ${process.env.NODE_ENV || 'development'}`);
   logger.info(`📡 WebSocket temps réel activé`);
   logger.info(`📦 Phase 2 : Production, Stocks, Équipements, Livraisons, Paiements`);
+
+  // Démarrer le bot WhatsApp après 20s pour laisser le pool DB se stabiliser
+  setTimeout(() => {
+    initializeWhatsApp().catch(e => logger.warn(`[WhatsApp] Init différée : ${e.message}`));
+  }, 45000);
 });
 
 module.exports = { app, server };
