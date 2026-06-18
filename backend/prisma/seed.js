@@ -87,6 +87,20 @@ async function main() {
     console.log(`✅ Équipement : ${e.nom} (${e.type}) — Coût/h : ${Math.round(coutH).toLocaleString('fr-FR')} FCFA`);
   }
 
+  // ─── Contacts WhatsApp ────────────────────────────
+  const waContacts = [
+    { nom: 'Adama (Directeur)', telephone: '53254074' },
+    { nom: 'Contact 2',         telephone: '56753178' },
+  ];
+  for (const c of waContacts) {
+    await prisma.whatsAppContact.upsert({
+      where:  { telephone: c.telephone },
+      create: c,
+      update: { nom: c.nom, actif: true },
+    });
+  }
+  console.log('✅ Contacts WhatsApp initialisés');
+
   console.log('\n🎉 AMP BÉTON ERP Phase 2 initialisé !\n');
   console.log('📋 Comptes disponibles :');
   console.log('   PDG          : pdg@ampbeton.bf          / Admin@2026');

@@ -102,6 +102,8 @@ enum TypeMatiere {
   HYDROFUGE
   POWERFLOW
   GASOIL
+  RETARDATEUR
+  ACCELERATEUR
   AUTRE
 }
 
@@ -110,6 +112,7 @@ enum TypeMouvement {
   ENTREE_RETOUR
   SORTIE_PRODUCTION
   SORTIE_PERTE
+  SORTIE_COMMANDE
   SORTIE_AUTRE
   INVENTAIRE
   AJUSTEMENT
@@ -217,8 +220,10 @@ model Formulation {
   gravier515  Float
   gravier1525 Float
   eau         Float
-  hydrofuge   Float  @default(0)
-  powerflow   Float  @default(0)
+  hydrofuge    Float  @default(0)
+  retardateur  Float  @default(0)
+  accelerateur Float  @default(0)
+  powerflow    Float  @default(0)
 
   prixCiment      Float
   prixSable       Float
@@ -226,8 +231,10 @@ model Formulation {
   prixGravier1525 Float
   prixEau         Float @default(0)
   prixHydrofuge   Float @default(0)
-  prixPowerflow   Float @default(0)
-  coutUnitaire    Float
+  prixPowerflow    Float @default(0)
+  prixRetardateur  Float @default(0)
+  prixAccelerateur Float @default(0)
+  coutUnitaire     Float
 
   amortToupie      Float @default(6648)
   amortPompe       Float @default(33300)
@@ -295,7 +302,7 @@ model Commande {
   regimeImposition   String?
   volumeBeton        Float
   typeBeton          String
-  dateLivraison      DateTime
+  dateLivraison      DateTime?
   observations       String?        @db.Text
   statut          StatutCommande @default(BROUILLON)
 
@@ -316,12 +323,25 @@ model Commande {
   coutGasoil        Float?
   coutAmortissement Float?
   coutPersonnel     Float?
+  fraisRestauration Float?
+  coutPeage         Float?
+  coutAutres        Float?
+  autresFraisLabel  String?
   coutTotal         Float?
   coutUnitaire      Float?
   montantCommande   Float?
-  remisePct         Float?  @default(0)   // % de remise sur le montant de vente
+  remisePct         Float?  @default(0)
   margePrevisionnelle Float?
   tauxMarge         Float?
+
+  // Options de coûts commande
+  includePersonnel    Boolean @default(true)
+  includeRestauration Boolean @default(true)
+  fraisPeage          Float   @default(0)
+  autresFrais         Float   @default(0)
+  useRetardateur      Boolean @default(false)
+  useAccelerateur     Boolean @default(false)
+  useHydrofuge        Boolean @default(false)
 
   // Distance et transport
   distanceLivraison   Float?  @default(0)
@@ -342,7 +362,8 @@ model Commande {
   // Phase 2
   productions Production[]
   livraisons  Livraison[]
-  paiements   Paiement[]
+  paiements        Paiement[]
+  mouvementsStock  MouvementStock[]
 
   // Financier Phase 2
   montantPaye       Float?   @default(0)
@@ -355,6 +376,36 @@ model Commande {
   updatedAt DateTime @updatedAt
 
   @@map("commandes")
+}
+
+// ═══════════════════════════════════════════════════════
+// WHATSAPP AUTH STATE (Supabase/Prisma)
+// ═══════════════════════════════════════════════════════
+
+model WhatsAppAuthState {
+  id         String   @id @default(cuid())
+  operatorId String
+  dataKey    String
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([operatorId, dataKey])
+  @@map("whatsapp_auth_state")
+}
+
+// ═══════════════════════════════════════════════════════
+// WHATSAPP CONTACTS (numéros qui reçoivent les notifications)
+// ═══════════════════════════════════════════════════════
+
+model WhatsAppContact {
+  id        String   @id @default(cuid())
+  nom       String
+  telephone String   @unique
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("whatsapp_contacts")
 }
 
 // ═══════════════════════════════════════════════════════
@@ -450,7 +501,6 @@ model Production {
   operateur   User   @relation("ProductionOperateur", fields: [operateurId], references: [id])
 
   equipements     ProductionEquipement[]
-  livraisons      Livraison[]
   mouvementsStock MouvementStock[]
 
   createdAt DateTime @default(now())
@@ -511,6 +561,7 @@ model MouvementStock {
   motif          String?
   reference      String?       // N° bon de livraison, facture, etc.
   commandeId     String?
+  commande       Commande?      @relation(fields: [commandeId], references: [id])
   productionId   String?
   production     Production?   @relation(fields: [productionId], references: [id])
   userId         String
@@ -594,8 +645,6 @@ model MaintenanceEquipement {
 model Livraison {
   id             String          @id @default(cuid())
   reference      String          @unique
-  productionId   String
-  production     Production      @relation(fields: [productionId], references: [id])
   commandeId     String
   commande       Commande        @relation(fields: [commandeId], references: [id])
 

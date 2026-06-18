@@ -252,8 +252,13 @@ async function sendWhatsAppMessage(phone, message) {
 //  Envoi groupé vers les utilisateurs internes ayant un rôle donné
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierRoles(roles, message) {
-  await sendWhatsAppMessage('53254074', message);
-  await sendWhatsAppMessage('56753178', message);
+  try {
+    const contacts = await prisma.whatsAppContact.findMany({ where: { actif: true } });
+    if (contacts.length === 0) return;
+    await Promise.all(contacts.map(c => sendWhatsAppMessage(c.telephone, message)));
+  } catch (e) {
+    console.error('[WhatsApp] notifierRoles erreur:', e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
