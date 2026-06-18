@@ -199,11 +199,14 @@ async function sendWhatsAppMessage(phone, message) {
 //  Envoi groupé — contacts depuis Supabase (avec retry si WA pas encore prêt)
 // ═══════════════════════════════════════════════════════════════════════════════
 async function notifierRoles(roles, message) {
+  console.log(`[WhatsApp] notifierRoles — isReady:${isWhatsAppReady} sock:${!!sock}`);
+
   const MAX_WAIT_MS = 15000;
   const POLL_MS     = 2000;
   let waited = 0;
 
   while (!isWhatsAppReady && waited < MAX_WAIT_MS) {
+    console.log(`[WhatsApp] attente reconnexion... ${waited / 1000}s`);
     await new Promise(r => setTimeout(r, POLL_MS));
     waited += POLL_MS;
   }
@@ -215,6 +218,7 @@ async function notifierRoles(roles, message) {
 
   try {
     const contacts = await prisma.whatsAppContact.findMany({ where: { actif: true } });
+    console.log(`[WhatsApp] ${contacts.length} contact(s) trouvé(s)`);
     if (contacts.length === 0) {
       console.warn('[WhatsApp] Aucun contact actif dans whatsapp_contacts');
       return;
