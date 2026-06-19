@@ -89,8 +89,11 @@ async function main() {
 
   // ─── Contacts WhatsApp ────────────────────────────
   const waContacts = [
-    { nom: 'Adama (Directeur)', telephone: '53254074' },
-    { nom: 'Contact 2',         telephone: '56753178' },
+    { nom: 'Adama (Directeur)',           telephone: '53254074' },
+    { nom: 'Contact 2',                   telephone: '56753178' },
+    { nom: 'SANOU Nachia (Asst Compta)',  telephone: '76768397' },
+    { nom: 'SAVADOGO Landry (Chef Site)', telephone: '60593737' },
+    { nom: 'Chef Comptable',              telephone: '64253551' },
   ];
   for (const c of waContacts) {
     await prisma.whatsAppContact.upsert({
