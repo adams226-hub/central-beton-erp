@@ -219,8 +219,11 @@ const generateDevis = (commande, calculs) => {
     bRow(item++, 'Frais restauration & Divers', 'plat', fmt(k.prixRepas || 1500), fmt(k.nbRepas || 0), fmtF(k.fraisRestauration), BG0);
   }
 
-  // Sous-total approvisionnements + amortissement
-  const totalAppro = (k.coutMateriaux || 0) + (k.coutGasoil || 0) + (k.coutAmortissement || 0) + (k.fraisRestauration || 0);
+  // Coût des adjuvants affichés (retardateur / accélérateur — forfait 10 000 FCFA/m³)
+  const coutAdjuvantsPDF = ((c.useRetardateur ? 1 : 0) + (c.useAccelerateur ? 1 : 0)) * 10000 * (c.volumeBeton || 0);
+
+  // Sous-total approvisionnements + amortissement (adjuvants inclus)
+  const totalAppro = (k.coutMateriaux || 0) + (k.coutGasoil || 0) + (k.coutAmortissement || 0) + (k.fraisRestauration || 0) + coutAdjuvantsPDF;
   doc.rect(45, y, 505, 17).fillColor(BLEU_CLAIR).fill();
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor(BLEU_FONCE)
     .text('Total approvisionnements et Amortissement', 50, y + 4, { width: 380, lineBreak: false })
@@ -244,25 +247,33 @@ const generateDevis = (commande, calculs) => {
     bRow(item++, autresLabel, 'forfait', '—', '—', fmtF(k.coutAutres), BG0);
   }
 
+  // Totaux corrigés incluant les adjuvants
+  const coutTotalPDF    = (k.coutTotal || 0) + coutAdjuvantsPDF;
+  const coutUnitairePDF = c.volumeBeton > 0 ? Math.round(coutTotalPDF / c.volumeBeton) : 0;
+  const remiseDevisNum  = parseFloat(c.remisePct) || 0;
+  const montantVentePDF = (c.montantCommande || 0) * (1 - remiseDevisNum / 100);
+  const margePDF        = montantVentePDF > 0 ? montantVentePDF - coutTotalPDF : 0;
+  const tauxMargePDF    = montantVentePDF > 0 ? (margePDF / montantVentePDF) * 100 : 0;
+
   // Total charges de fonctionnement
   doc.rect(45, y, 505, 17).fillColor(BLEU_CLAIR).fill();
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor(BLEU_FONCE)
     .text('Total charges de fonctionnement', 50, y + 4, { width: 380, lineBreak: false })
-    .text(fmtF(k.coutTotal), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+    .text(fmtF(coutTotalPDF), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
   y += 19;
 
   // BUDGET TOTAL
   doc.rect(45, y, 505, 19).fillColor(BLEU_FONCE).fill();
   doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
     .text('BUDGET TOTAL', 50, y + 5, { width: 380, lineBreak: false })
-    .text(fmtF(k.coutTotal), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
+    .text(fmtF(coutTotalPDF), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
   y += 21;
 
   // Coût de production
   doc.rect(45, y, 505, 17).fillColor(GRIS_LEGER).fill();
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
     .text(`Coût de production (FCFA/m³)`, 50, y + 4, { width: 380, lineBreak: false })
-    .text(fmtF(k.coutUnitaire), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
+    .text(fmtF(coutUnitairePDF), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
   y += 19;
 
   // Montant commande + remise + marge
@@ -288,14 +299,14 @@ const generateDevis = (commande, calculs) => {
       .text(fmtF(c.montantCommande), 390, y + 4, { width: 152, align: 'right', lineBreak: false });
     y += 17;
 
-    const margePos   = (k.margePrevisionnelle || 0) >= 0;
+    const margePos   = margePDF >= 0;
     const margeBg    = margePos ? VERT_CLAIR : ROUGE_CLAIR;
     const margeColor = margePos ? VERT : ROUGE;
     doc.rect(45, y, 505, 19).fillColor(margeBg).fill();
     doc.fontSize(9).font('Helvetica-Bold').fillColor(margeColor)
       .text(`Marge Brute Bénéficiaire`, 50, y + 5, { width: 310, lineBreak: false })
-      .text(`${fmtD(k.tauxMarge)}%`, 365, y + 5, { width: 70, align: 'right', lineBreak: false })
-      .text(fmtF(k.margePrevisionnelle), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
+      .text(`${fmtD(tauxMargePDF)}%`, 365, y + 5, { width: 70, align: 'right', lineBreak: false })
+      .text(fmtF(margePDF), 390, y + 5, { width: 152, align: 'right', lineBreak: false });
     y += 21;
   }
 
