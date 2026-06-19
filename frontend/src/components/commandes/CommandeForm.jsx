@@ -11,9 +11,9 @@ import { formatMontant } from '../../utils/formatters';
 
 // ─── Bordereau de prix AMP BETON ─────────────────────────────────────────────
 const TARIF_BORDEREAU = {
-  ZONE1: { C5: 66000, C15: 76000, C20: 91000, C25: 98000, C30: 108000, C35: 119000, C40: 126000 },
-  ZONE2: { C5: 75000, C15: 86500, C20: 101000, C25: 106000, C30: 117000, C35: 128000, C40: 134000 },
-  ZONE3: { C5: 78000, C15: 91000, C20: 107000, C25: 114000, C30: 124000, C35: 135000, C40: 141000 },
+  ZONE1: { C5: 65000, C15: 75000, C20: 90000, C25: 97000, C30: 107000, C35: 118000, C40: 125000 },
+  ZONE2: { C5: 74000, C15: 85500, C20: 100000, C25: 105000, C30: 116000, C35: 127000, C40: 133000 },
+  ZONE3: { C5: 77000, C15: 90000, C20: 106000, C25: 113000, C30: 123000, C35: 134000, C40: 140000 },
 };
 const ZONES = [
   { id: 'ZONE1', label: 'Zone 1', desc: '1 – 50 km' },
@@ -151,8 +151,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const zone = zoneManuelle || zoneAuto;
   const prixUnitaireBordereau = zone && typeBeton ? (TARIF_BORDEREAU[zone]?.[typeBeton] ?? null) : null;
   const montantBetonBase = prixUnitaireBordereau && volume ? Math.round(prixUnitaireBordereau * parseFloat(volume)) : null;
-  const adjuvantCost = ((useRetardateur ? 1 : 0) + (useAccelerateur ? 1 : 0)) * 10000 * (parseFloat(volume) || 0);
-  const montantSuggere = montantBetonBase !== null ? montantBetonBase + adjuvantCost : (adjuvantCost > 0 ? adjuvantCost : null);
+  const montantSuggere = montantBetonBase !== null ? montantBetonBase : null;
 
   // Quand la distance change → réinitialiser la zone manuelle
   useEffect(() => {
@@ -167,7 +166,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   // Prix effectif : manuel si saisi, sinon bordereau
   const prixEffectifM3 = customPrixM3 ?? prixUnitaireBordereau;
   const montantEffectif = prixEffectifM3 && volume
-    ? Math.round(prixEffectifM3 * parseFloat(volume)) + adjuvantCost
+    ? Math.round(prixEffectifM3 * parseFloat(volume))
     : montantSuggere;
 
   // Synchroniser montantCommande — seulement si l'utilisateur n'a pas saisi manuellement
@@ -362,7 +361,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                         const val = parseFloat(e.target.value) || null;
                         setCustomPrixM3(val);
                         if (val && volume) {
-                          setValue('montantCommande', Math.round(val * parseFloat(volume)) + adjuvantCost, { shouldValidate: false });
+                          setValue('montantCommande', Math.round(val * parseFloat(volume)), { shouldValidate: false });
                         }
                       }}
                       className={`w-36 amp-input text-sm font-bold ${customPrixM3 !== null ? 'border-orange-400 bg-orange-50 text-orange-800' : 'text-blue-800'}`}
@@ -379,28 +378,21 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             </div>
           )}
 
-          {/* Additifs facturables */}
+          {/* Additifs (coûts de production internes) */}
           {formulationId && (
             <div className="md:col-span-3">
               <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
-                <p className="text-xs font-semibold text-orange-700 uppercase mb-2">Additifs facturables — 10 000 FCFA/m³ chacun</p>
+                <p className="text-xs font-semibold text-orange-700 uppercase mb-2">Additifs (coûts de production — n'affectent pas le prix de vente)</p>
                 <div className="flex flex-wrap gap-5">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" {...register('useRetardateur')} className="w-4 h-4 rounded accent-orange-600" />
                     <span className="text-sm text-gray-700">Retardateur de prise</span>
-                    <span className="text-xs text-orange-600 font-medium">+10 000/m³</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" {...register('useAccelerateur')} className="w-4 h-4 rounded accent-orange-600" />
                     <span className="text-sm text-gray-700">Accélérateur de prise</span>
-                    <span className="text-xs text-orange-600 font-medium">+10 000/m³</span>
                   </label>
                 </div>
-                {adjuvantCost > 0 && (
-                  <p className="text-xs text-orange-700 mt-2 font-medium">
-                    Supplément additifs : +{formatMontant(adjuvantCost)}
-                  </p>
-                )}
               </div>
             </div>
           )}
