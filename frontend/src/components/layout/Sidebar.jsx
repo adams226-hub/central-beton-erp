@@ -31,7 +31,7 @@ const NAV_GROUPS = [
   {
     label: 'Opérations',
     items: [
-      { path: '/livraisons', label: 'Livraisons', icon: Truck,     permission: 'livraison:read' },
+      { path: '/livraisons', label: 'Production et Livraison', icon: Truck,     permission: 'livraison:read' },
       { path: '/stocks',     label: 'Stocks',     icon: Package,   permission: 'stock:read' },
       { path: '/rapports',   label: 'Rapports',   icon: BarChart3, permission: 'rapport:read' },
     ],

@@ -592,16 +592,15 @@ const generateFactureProforma = (commande) => {
   const COLS = [40, 175, 55, 70, 80, 75]; // widths
   const HEADERS = ['Nos ref', 'DESIGNATION', 'UNITE', 'QUANTITE', 'PRIX UNITAIRE', 'MONTANT'];
 
-  // Bordure externe (hauteur dynamique selon adjuvants)
+  // Bordure externe — béton + total uniquement (additifs non affichés sur la proforma client)
   const tableW = COLS.reduce((a, b) => a + b, 0);
-  const adjCountFP = (c.useHydrofuge ? 1 : 0) + (c.useRetardateur ? 1 : 0) + (c.useAccelerateur ? 1 : 0);
-  doc.rect(L, y, tableW, TH + TR * (2 + adjCountFP)).lineWidth(0.8).strokeColor(NOIR).stroke();
+  doc.rect(L, y, tableW, TH + TR * 2).lineWidth(0.8).strokeColor(NOIR).stroke();
 
   // En-tête tableau
   doc.rect(L, y, tableW, TH).fillColor('#D1D5DB').fill();
   let tx = L;
   HEADERS.forEach((h, i) => {
-    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + TH + TR * (2 + adjCountFP)).lineWidth(0.5).strokeColor(NOIR).stroke();
+    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + TH + TR * 2).lineWidth(0.5).strokeColor(NOIR).stroke();
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
       .text(h, tx + 4, y + (TH - 9) / 2 + 1, { width: COLS[i] - 8, align: 'center', lineBreak: false });
     tx += COLS[i];
@@ -611,22 +610,13 @@ const generateFactureProforma = (commande) => {
   doc.moveTo(L, y + TH).lineTo(L + tableW, y + TH).lineWidth(0.5).strokeColor(NOIR).stroke();
   y += TH;
 
-  // Ligne 1 — Béton base (prix NET après remise)
-  const montantBrutFP  = (c.remisePct > 0 && c.montantCommande)
-    ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
-    : (c.montantCommande || 0);
-  const deductFP = montantBrutFP - (c.montantCommande || 0);
-  const adjCostFP = adjCountFP * 10000 * (c.volumeBeton || 0);
-  const montantBaseFP = montantBrutFP - adjCostFP;
+  // Ligne béton — montant total (additifs inclus dans le produit fini, pas détaillés)
   const remiseFP = parseFloat(c.remisePct) || 0;
-  const netFactorFP = 1 - remiseFP / 100;
-  const montantNetBetonFP = Math.round(montantBaseFP * netFactorFP);
-  const prixUnit = c.volumeBeton > 0 ? Math.round(montantNetBetonFP / c.volumeBeton) : 0;
-  const prixNetAdjFP = Math.round(10000 * netFactorFP);
   const labelRemiseFP = remiseFP > 0 ? ` (-${fmtD(remiseFP)}%)` : '';
-  let rowNumFP = 1;
-  const ligneVals = [String(rowNumFP++), `Béton de ${c.typeBeton || 'C25/30'}${labelRemiseFP}`, 'm3',
-    String(c.volumeBeton || 0), fmt(prixUnit), fmt(montantNetBetonFP)];
+  const montantTotalFP = c.montantCommande || 0;
+  const prixUnit = c.volumeBeton > 0 ? Math.round(montantTotalFP / c.volumeBeton) : 0;
+  const ligneVals = ['1', `Béton de ${c.typeBeton || 'C25/30'}${labelRemiseFP}`, 'm3',
+    String(c.volumeBeton || 0), fmt(prixUnit), fmt(montantTotalFP)];
 
   tx = L;
   ligneVals.forEach((v, i) => {
@@ -637,27 +627,6 @@ const generateFactureProforma = (commande) => {
   });
   y += TR;
   doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
-
-  // Lignes adjuvants (prix NET)
-  const adjuvantsRows = [
-    { active: c.useHydrofuge,    label: 'Hydrofuge (additif)' },
-    { active: c.useRetardateur,  label: 'Retardateur de prise (additif)' },
-    { active: c.useAccelerateur, label: 'Accélérateur de prise (additif)' },
-  ];
-  for (const adj of adjuvantsRows) {
-    if (!adj.active) continue;
-    const adjVals = [String(rowNumFP++), `${adj.label}${labelRemiseFP}`, 'm3',
-      String(c.volumeBeton || 0), fmt(prixNetAdjFP), fmt(prixNetAdjFP * (c.volumeBeton || 0))];
-    tx = L;
-    adjVals.forEach((v, i) => {
-      const align = i >= 3 ? 'right' : (i === 1 ? 'left' : 'center');
-      doc.fontSize(9).font('Helvetica').fillColor(NOIR)
-        .text(v, tx + 4, y + (TR - 10) / 2 + 1, { width: COLS[i] - 8, align, lineBreak: false });
-      tx += COLS[i];
-    });
-    y += TR;
-    doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
-  }
 
   // Ligne TOTAL (montant après remise)
   doc.rect(L, y, tableW, TR).fillColor('#1E3A5F').fill();
