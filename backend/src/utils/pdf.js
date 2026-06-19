@@ -229,7 +229,8 @@ const generateDevis = (commande, calculs) => {
 
   // Charge du personnel (si > 0)
   if ((k.coutPersonnel || 0) > 0) {
-    bRow(item++, 'Charge du personnel', 'm³', '245', fmtD(c.volumeBeton), fmtF(k.coutPersonnel), BLANC);
+    const tauxPerso = c.volumeBeton > 0 ? Math.round(k.coutPersonnel / c.volumeBeton) : 245;
+    bRow(item++, 'Charge du personnel', 'm³', fmt(tauxPerso), fmtD(c.volumeBeton), fmtF(k.coutPersonnel), BLANC);
   }
 
   // Frais péage (si > 0)
