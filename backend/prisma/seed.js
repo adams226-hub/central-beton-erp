@@ -89,17 +89,17 @@ async function main() {
 
   // ─── Contacts WhatsApp ────────────────────────────
   const waContacts = [
-    { nom: 'Adama (Directeur)',           telephone: '53254074' },
-    { nom: 'Contact 2',                   telephone: '56753178' },
-    { nom: 'SANOU Nachia (Asst Compta)',  telephone: '76768397' },
-    { nom: 'SAVADOGO Landry (Chef Site)', telephone: '60593737' },
-    { nom: 'Chef Comptable',              telephone: '64253551' },
+    { nom: 'Adama (Directeur)',           telephone: '53254074',  actif: true  },
+    { nom: 'Contact 2',                   telephone: '56753178',  actif: true  },
+    { nom: 'SANOU Nachia (Asst Compta)',  telephone: '76768397',  actif: true  },
+    { nom: 'SAVADOGO Landry (Chef Site)', telephone: '60593737',  actif: false },
+    { nom: 'Chef Comptable',              telephone: '64253551',  actif: true  },
   ];
   for (const c of waContacts) {
     await prisma.whatsAppContact.upsert({
       where:  { telephone: c.telephone },
       create: c,
-      update: { nom: c.nom, actif: true },
+      update: { nom: c.nom, actif: c.actif },
     });
   }
   console.log('✅ Contacts WhatsApp initialisés');
