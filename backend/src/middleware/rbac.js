@@ -47,7 +47,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   CHEF_COMPTABLE: [
-    'commande:read', 'commande:validate', 'commande:reject',
+    'commande:read', 'commande:validate', 'commande:reject', 'commande:delete',
     'formulation:read',
     'notification:read',
     'stock:read',

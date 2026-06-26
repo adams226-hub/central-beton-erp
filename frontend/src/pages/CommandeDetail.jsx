@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, CheckCircle, XCircle, Edit, User,
   MapPin, Phone, Calendar, Layers, Calculator, Clock, FileText,
-  Truck, CreditCard, Factory, Activity, TrendingUp, Package,
+  Truck, CreditCard, Factory, Activity, TrendingUp, Package, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { commandesAPI } from '../api';
@@ -88,6 +88,8 @@ const CommandeDetail = () => {
   const [editing, setEditing] = useState(false);
   const [rejectMotif, setRejectMotif] = useState('');
   const [showReject, setShowReject] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: commande, isLoading } = useQuery({
     queryKey: ['commande', id],
@@ -104,6 +106,20 @@ const CommandeDetail = () => {
       qc.invalidateQueries({ queryKey: ['statistiques'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erreur');
+    }
+  };
+
+  const handleSupprimer = async () => {
+    setDeleting(true);
+    try {
+      await commandesAPI.supprimer(id);
+      toast.success('Commande supprimée définitivement');
+      navigate('/commandes');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la suppression');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -145,6 +161,7 @@ const CommandeDetail = () => {
     'EN_ATTENTE_ASSISTANT_COMPTABLE','EN_ATTENTE_CHEF_COMPTABLE','EN_ATTENTE_PDG',
   ].includes(commande.statut);
   const canEdit = hasPermission('commande:update') && ['BROUILLON','EN_ATTENTE_SECRETAIRE','REJETEE'].includes(commande.statut);
+  const canDelete = hasPermission('commande:delete') && ['BROUILLON','ANNULEE','REJETEE'].includes(commande.statut);
 
   // Calculs paiements
   const totalCommande = commande.montantCommande || 0;
@@ -214,6 +231,11 @@ const CommandeDetail = () => {
           {canReject && (
             <button onClick={() => setShowReject(true)} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               <XCircle size={14} /> Rejeter
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <Trash2 size={14} /> Supprimer
             </button>
           )}
         </div>
@@ -605,6 +627,37 @@ const CommandeDetail = () => {
             <div className="flex gap-3">
               <button onClick={handleRejeter} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium text-sm">Confirmer</button>
               <button onClick={() => setShowReject(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">Annuler</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">Supprimer la commande</h3>
+                <p className="text-xs text-gray-400">{commande.reference}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Cette action est <strong>irréversible</strong>. La commande, ses livraisons et paiements associés seront définitivement supprimés.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSupprimer}
+                disabled={deleting}
+                className="flex-1 bg-red-700 hover:bg-red-800 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium text-sm"
+              >
+                {deleting ? 'Suppression...' : 'Supprimer définitivement'}
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">
+                Annuler
+              </button>
             </div>
           </motion.div>
         </div>

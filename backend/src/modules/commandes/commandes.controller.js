@@ -105,13 +105,44 @@ const genererFactureProforma = asyncHandler(async (req, res) => {
 });
 
 const supprimerCommande = asyncHandler(async (req, res) => {
-  const commande = await prisma.commande.findUnique({ where: { id: req.params.id } });
+  const commande = await prisma.commande.findUnique({
+    where: { id: req.params.id },
+    include: { paiements: true, livraisons: true },
+  });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
-  if (commande.statut !== 'BROUILLON' && req.user.role !== 'PDG') {
-    return res.status(403).json({ success: false, message: 'Seul le PDG peut supprimer une commande validée' });
+
+  const SUPPRIMABLES = ['BROUILLON', 'ANNULEE', 'REJETEE'];
+  if (!SUPPRIMABLES.includes(commande.statut)) {
+    return res.status(400).json({
+      success: false,
+      message: `Impossible de supprimer une commande en statut "${commande.statut}". Seules les commandes en brouillon, annulées ou rejetées peuvent être supprimées.`,
+    });
   }
-  await prisma.commande.delete({ where: { id: req.params.id } });
-  res.json({ success: true, message: 'Commande supprimée' });
+
+  const paiementsPayes = commande.paiements.filter((p) => ['PAYE', 'PARTIEL'].includes(p.statut));
+  if (paiementsPayes.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: `Impossible de supprimer : ${paiementsPayes.length} paiement(s) déjà enregistré(s) sur cette commande.`,
+    });
+  }
+
+  await prisma.$transaction([
+    prisma.paiement.deleteMany({ where: { commandeId: req.params.id } }),
+    prisma.livraison.deleteMany({ where: { commandeId: req.params.id } }),
+    prisma.commande.delete({ where: { id: req.params.id } }),
+  ]);
+
+  await prisma.activite.create({
+    data: {
+      userId: req.user.id,
+      type: 'SUPPRESSION_COMMANDE',
+      action: `Commande supprimée : ${commande.reference}`,
+      details: { reference: commande.reference, nomClient: commande.nomClient },
+    },
+  });
+
+  res.json({ success: true, message: `Commande ${commande.reference} supprimée définitivement` });
 });
 
 module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, supprimerCommande };
