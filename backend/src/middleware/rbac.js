@@ -14,7 +14,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   SECRETAIRE: [
-    'commande:read', 'commande:create', 'commande:update', 'commande:validate',
+    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:delete',
     'formulation:read',
     'notification:read',
     'stock:read',
@@ -24,7 +24,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   CHEF_DE_SITE: [
-    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject',
+    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
     'formulation:read', 'formulation:create', 'formulation:update',
     'notification:read',
     'stock:read', 'stock:write',
@@ -36,7 +36,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   ASSISTANT_COMPTABLE: [
-    'commande:read', 'commande:validate', 'commande:reject',
+    'commande:read', 'commande:validate', 'commande:reject', 'commande:delete',
     'formulation:read',
     'notification:read',
     'stock:read',
@@ -58,7 +58,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   COMPTABLE: [
-    'commande:read',
+    'commande:read', 'commande:delete',
     'formulation:read',
     'notification:read',
     'stock:read',
@@ -70,7 +70,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   OPERATEUR: [
-    'commande:read',
+    'commande:read', 'commande:delete',
     'production:read', 'production:write',
     'livraison:read', 'livraison:write',
     'stock:read',
