@@ -146,7 +146,7 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   await prisma.activite.create({
     data: {
       userId: req.user.id,
-      type: 'SUPPRESSION_COMMANDE',
+      type: 'AUTRE',
       action: `Commande supprimée : ${commande.reference}`,
       details: { reference: commande.reference, nomClient: commande.nomClient },
     },
