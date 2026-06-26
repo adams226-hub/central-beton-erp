@@ -29,16 +29,6 @@ const getHistorique = async (id) => {
 };
 
 const creer = async (data, userId) => {
-  // Vérifier si un typeBeton identique existe déjà
-  const existante = await prisma.formulation.findUnique({ where: { typeBeton: data.typeBeton } });
-  if (existante) {
-    throw Object.assign(
-      new Error(`Une formulation "${data.typeBeton}" existe déjà. Modifiez la formulation existante.`),
-      { statusCode: 400 }
-    );
-  }
-
-  // Calculer le coût unitaire automatiquement
   const coutMateriaux = calculerCoutUnitaire(data);
 
   const formulation = await prisma.formulation.create({

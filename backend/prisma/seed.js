@@ -40,13 +40,13 @@ async function main() {
   ];
 
   for (const f of formulations) {
-    const { createdById: _cby, ...updateData } = f;
-    await prisma.formulation.upsert({
-      where: { typeBeton: f.typeBeton },
-      update: updateData,
-      create: f,
-    });
-    console.log(`✅ Formulation : ${f.nom}`);
+    const existing = await prisma.formulation.findFirst({ where: { nom: f.nom } });
+    if (!existing) {
+      await prisma.formulation.create({ data: f });
+      console.log(`✅ Formulation : ${f.nom}`);
+    } else {
+      console.log(`⚠️  Formulation déjà existante : ${f.nom}`);
+    }
   }
 
   // ─── Stocks initiaux ────────────────────────────────

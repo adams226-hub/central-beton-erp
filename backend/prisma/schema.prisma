@@ -199,7 +199,7 @@ model User {
 model Formulation {
   id          String  @id @default(cuid())
   nom         String
-  typeBeton   String  @unique
+  typeBeton   String
   description String?
   version     Int     @default(1)
   isActive    Boolean @default(true)
