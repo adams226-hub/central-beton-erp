@@ -90,6 +90,9 @@ const CommandeDetail = () => {
   const [showReject, setShowReject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showProformaModal, setShowProformaModal] = useState(false);
+  const [proformaLignes, setProformaLignes] = useState([]);
+  const [generatingProforma, setGeneratingProforma] = useState(false);
 
   const { data: commande, isLoading } = useQuery({
     queryKey: ['commande', id],
@@ -143,6 +146,40 @@ const CommandeDetail = () => {
       const a = document.createElement('a'); a.href = url; a.download = `devis-${commande.reference}.pdf`; a.click();
       URL.revokeObjectURL(url);
     } catch { toast.error('Erreur PDF'); }
+  };
+
+  const handleOpenProforma = () => {
+    const prixUnit = commande.volumeBeton > 0 ? Math.round((commande.montantCommande || 0) / commande.volumeBeton) : 0;
+    setProformaLignes([
+      { designation: `Béton de ${commande.typeBeton || commande.formulation?.typeBeton || 'C25/30'}`, unite: 'm3', quantite: commande.volumeBeton || 0, prixUnitaire: prixUnit, montant: commande.montantCommande || 0 },
+    ]);
+    setShowProformaModal(true);
+  };
+
+  const handleProformaLigneMontant = (idx, field, value) => {
+    setProformaLignes((prev) => {
+      const updated = prev.map((l, i) => {
+        if (i !== idx) return l;
+        const next = { ...l, [field]: value };
+        if (field === 'quantite' || field === 'prixUnitaire') {
+          next.montant = Math.round((parseFloat(next.quantite) || 0) * (parseFloat(next.prixUnitaire) || 0));
+        }
+        return next;
+      });
+      return updated;
+    });
+  };
+
+  const handleGenererProforma = async () => {
+    setGeneratingProforma(true);
+    try {
+      const res = await commandesAPI.telechargerProformaCustom(id, proformaLignes);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a'); a.href = url; a.download = `proforma-${commande.reference}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+      setShowProformaModal(false);
+    } catch { toast.error('Erreur génération proforma'); }
+    finally { setGeneratingProforma(false); }
   };
 
   if (isLoading) return <PageLoader />;
@@ -222,6 +259,9 @@ const CommandeDetail = () => {
           )}
           <button onClick={handlePDF} className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm transition-colors">
             <Download size={14} /> Devis PDF
+          </button>
+          <button onClick={handleOpenProforma} className="flex items-center gap-1.5 border border-blue-200 hover:bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-sm transition-colors">
+            <FileText size={14} /> Proforma PDF
           </button>
           {canValidate && (
             <button onClick={handleValider} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -619,6 +659,115 @@ const CommandeDetail = () => {
       </div>
 
       {/* ── Modal rejet ── */}
+      {showProformaModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-bold text-gray-800 text-base">Facture Proforma — {commande.reference}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Modifiez les lignes puis générez le PDF</p>
+              </div>
+              <button onClick={() => setShowProformaModal(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+            </div>
+
+            {/* Table lignes */}
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead className="bg-gray-100 text-gray-600 text-xs uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-8">#</th>
+                    <th className="px-3 py-2 text-left">Désignation</th>
+                    <th className="px-3 py-2 text-center w-20">Unité</th>
+                    <th className="px-3 py-2 text-right w-24">Qté</th>
+                    <th className="px-3 py-2 text-right w-32">Prix unit.</th>
+                    <th className="px-3 py-2 text-right w-32">Montant</th>
+                    <th className="px-3 py-2 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proformaLignes.map((l, idx) => (
+                    <tr key={idx} className="border-t border-gray-100">
+                      <td className="px-3 py-2 text-gray-400 text-xs">{idx + 1}</td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="text"
+                          value={l.designation}
+                          onChange={(e) => handleProformaLigneMontant(idx, 'designation', e.target.value)}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="text"
+                          value={l.unite}
+                          onChange={(e) => handleProformaLigneMontant(idx, 'unite', e.target.value)}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-center focus:outline-none focus:border-blue-400"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          value={l.quantite}
+                          onChange={(e) => handleProformaLigneMontant(idx, 'quantite', e.target.value)}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:border-blue-400"
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <input
+                          type="number"
+                          value={l.prixUnitaire}
+                          onChange={(e) => handleProformaLigneMontant(idx, 'prixUnitaire', e.target.value)}
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:border-blue-400"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-700 text-sm whitespace-nowrap">
+                        {formatMontant(l.montant)}
+                      </td>
+                      <td className="px-2 py-1">
+                        {proformaLignes.length > 1 && (
+                          <button onClick={() => setProformaLignes((p) => p.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 font-bold">×</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-blue-900 text-white">
+                  <tr>
+                    <td colSpan={5} className="px-3 py-2 text-center text-xs font-bold">TOTAL GÉNÉRAL HTVA</td>
+                    <td className="px-3 py-2 text-right font-bold text-sm">
+                      {formatMontant(proformaLignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0))}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Ajouter ligne */}
+            <button
+              onClick={() => setProformaLignes((p) => [...p, { designation: '', unite: 'm3', quantite: 0, prixUnitaire: 0, montant: 0 }])}
+              className="text-sm text-blue-600 hover:text-blue-800 mb-5 flex items-center gap-1"
+            >
+              + Ajouter une ligne
+            </button>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleGenererProforma}
+                disabled={generatingProforma}
+                className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+              >
+                <Download size={14} />
+                {generatingProforma ? 'Génération...' : 'Générer le PDF'}
+              </button>
+              <button onClick={() => setShowProformaModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">
+                Annuler
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {showReject && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">

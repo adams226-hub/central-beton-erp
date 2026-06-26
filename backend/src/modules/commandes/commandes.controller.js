@@ -104,6 +104,16 @@ const genererFactureProforma = asyncHandler(async (req, res) => {
   doc.end();
 });
 
+const genererFactureProformaCustom = asyncHandler(async (req, res) => {
+  const commande = await service.getCommande(req.params.id);
+  const lignes = Array.isArray(req.body.lignes) && req.body.lignes.length > 0 ? req.body.lignes : null;
+  const doc = generateFactureProforma(commande, lignes);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="proforma-${commande.reference}.pdf"`);
+  doc.pipe(res);
+  doc.end();
+});
+
 const supprimerCommande = asyncHandler(async (req, res) => {
   const commande = await prisma.commande.findUnique({
     where: { id: req.params.id },
@@ -145,4 +155,4 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Commande ${commande.reference} supprimée définitivement` });
 });
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, supprimerCommande };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, genererFactureProformaCustom, supprimerCommande };

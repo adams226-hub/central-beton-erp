@@ -20,6 +20,7 @@ export const commandesAPI = {
   statistiques: () => api.get('/commandes/statistiques'),
   telechargerPDF: (id) => api.get(`/commandes/${id}/pdf`, { responseType: 'blob' }),
   telechargerProforma: (id) => api.get(`/commandes/${id}/proforma`, { responseType: 'blob' }),
+  telechargerProformaCustom: (id, lignes) => api.post(`/commandes/${id}/proforma`, { lignes }, { responseType: 'blob' }),
 };
 
 // ─── Formulations ────────────────────────────────────

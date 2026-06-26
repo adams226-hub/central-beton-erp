@@ -536,7 +536,7 @@ function nombreEnLettresFR(n) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Facture Proforma
 // ─────────────────────────────────────────────────────────────────────────────
-const generateFactureProforma = (commande) => {
+const generateFactureProforma = (commande, lignesCustom = null) => {
   const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 0, left: 50, right: 50 } });
   const c = commande;
   const W = 495; // zone utile (595 - 2*50)
@@ -598,61 +598,76 @@ const generateFactureProforma = (commande) => {
     .text('Objet : VENTE DE BETON', L, y, { underline: true });
   y += 20;
 
+  // ── Lignes du tableau ─────────────────────────────────────────────────────
+  const remiseFP = parseFloat(c.remisePct) || 0;
+  const labelRemiseFP = remiseFP > 0 ? ` (-${fmtD(remiseFP)}%)` : '';
+  const montantTotalFP = c.montantCommande || 0;
+  const prixUnitDefault = c.volumeBeton > 0 ? Math.round(montantTotalFP / c.volumeBeton) : 0;
+
+  const lignes = lignesCustom && lignesCustom.length > 0 ? lignesCustom : [
+    { designation: `Béton de ${c.typeBeton || 'C25/30'}${labelRemiseFP}`, unite: 'm3', quantite: c.volumeBeton || 0, prixUnitaire: prixUnitDefault, montant: montantTotalFP },
+  ];
+  const totalGeneral = lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0);
+
   // ── Tableau ───────────────────────────────────────────────────────────────
-  const TH = 22; // hauteur en-tête tableau
-  const TR = 22; // hauteur ligne
-  const COLS = [40, 175, 55, 70, 80, 75]; // widths
+  const TH = 22; // hauteur en-tête
+  const TR = 22; // hauteur ligne données
+  const COLS = [40, 175, 55, 70, 80, 75];
   const HEADERS = ['Nos ref', 'DESIGNATION', 'UNITE', 'QUANTITE', 'PRIX UNITAIRE', 'MONTANT'];
-
-  // Bordure externe — béton + total uniquement (additifs non affichés sur la proforma client)
   const tableW = COLS.reduce((a, b) => a + b, 0);
-  doc.rect(L, y, tableW, TH + TR * 2).lineWidth(0.8).strokeColor(NOIR).stroke();
+  const tableH = TH + TR * (lignes.length + 1); // +1 pour la ligne TOTAL
 
-  // En-tête tableau
+  doc.rect(L, y, tableW, tableH).lineWidth(0.8).strokeColor(NOIR).stroke();
+
+  // En-tête
   doc.rect(L, y, tableW, TH).fillColor('#D1D5DB').fill();
   let tx = L;
   HEADERS.forEach((h, i) => {
-    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + TH + TR * 2).lineWidth(0.5).strokeColor(NOIR).stroke();
+    if (i > 0) doc.moveTo(tx, y).lineTo(tx, y + tableH).lineWidth(0.5).strokeColor(NOIR).stroke();
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
       .text(h, tx + 4, y + (TH - 9) / 2 + 1, { width: COLS[i] - 8, align: 'center', lineBreak: false });
     tx += COLS[i];
   });
-
-  // Ligne de séparation en-tête / données
   doc.moveTo(L, y + TH).lineTo(L + tableW, y + TH).lineWidth(0.5).strokeColor(NOIR).stroke();
   y += TH;
 
-  // Ligne béton — montant total (additifs inclus dans le produit fini, pas détaillés)
-  const remiseFP = parseFloat(c.remisePct) || 0;
-  const labelRemiseFP = remiseFP > 0 ? ` (-${fmtD(remiseFP)}%)` : '';
-  const montantTotalFP = c.montantCommande || 0;
-  const prixUnit = c.volumeBeton > 0 ? Math.round(montantTotalFP / c.volumeBeton) : 0;
-  const ligneVals = ['1', `Béton de ${c.typeBeton || 'C25/30'}${labelRemiseFP}`, 'm3',
-    String(c.volumeBeton || 0), fmt(prixUnit), fmt(montantTotalFP)];
-
-  tx = L;
-  ligneVals.forEach((v, i) => {
-    const align = i >= 3 ? 'right' : (i === 1 ? 'left' : 'center');
-    doc.fontSize(9).font('Helvetica').fillColor(NOIR)
-      .text(v, tx + 4, y + (TR - 10) / 2 + 1, { width: COLS[i] - 8, align, lineBreak: false });
-    tx += COLS[i];
+  // Lignes données
+  lignes.forEach((l, idx) => {
+    const vals = [
+      String(idx + 1),
+      String(l.designation || ''),
+      String(l.unite || 'm3'),
+      String(l.quantite || 0),
+      fmt(parseFloat(l.prixUnitaire) || 0),
+      fmt(parseFloat(l.montant) || 0),
+    ];
+    tx = L;
+    vals.forEach((v, i) => {
+      const align = i >= 3 ? 'right' : (i === 1 ? 'left' : 'center');
+      doc.fontSize(9).font('Helvetica').fillColor(NOIR)
+        .text(v, tx + 4, y + (TR - 10) / 2 + 1, { width: COLS[i] - 8, align, lineBreak: false });
+      tx += COLS[i];
+    });
+    y += TR;
+    if (idx < lignes.length - 1) doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
   });
-  y += TR;
+
+  // Séparateur avant total
   doc.moveTo(L, y).lineTo(L + tableW, y).lineWidth(0.5).strokeColor(NOIR).stroke();
 
-  // Ligne TOTAL (montant après remise)
+  // Ligne TOTAL
   doc.rect(L, y, tableW, TR).fillColor('#1E3A5F').fill();
   doc.fontSize(9).font('Helvetica-Bold').fillColor(BLANC)
     .text('TOTAL GENERAL HTVA', L + 4, y + (TR - 10) / 2 + 1, { width: COLS[0] + COLS[1] + COLS[2] + COLS[3] + COLS[4] - 8, align: 'center', lineBreak: false })
-    .text(fmt(c.montantCommande || 0), L + COLS[0] + COLS[1] + COLS[2] + COLS[3] + COLS[4] + 4, y + (TR - 10) / 2 + 1, { width: COLS[5] - 8, align: 'right', lineBreak: false });
+    .text(fmt(totalGeneral), L + COLS[0] + COLS[1] + COLS[2] + COLS[3] + COLS[4] + 4, y + (TR - 10) / 2 + 1, { width: COLS[5] - 8, align: 'right', lineBreak: false });
   y += TR + 14;
 
   // ── Montant en lettres ────────────────────────────────────────────────────
-  const enLettres = nombreEnLettresFR(c.montantCommande || 0);
+  const enLettres = nombreEnLettresFR(totalGeneral);
   doc.fontSize(9.5).font('Helvetica').fillColor(NOIR)
     .text('Arrêté la présente Facture proforma à la somme de ', L, y, { continued: true })
     .font('Helvetica-Bold').text(enLettres, { continued: true })
-    .font('Helvetica').text(` ( ${fmt(c.montantCommande || 0)}) francs CFA HTVA.`);
+    .font('Helvetica').text(` ( ${fmt(totalGeneral)}) francs CFA HTVA.`);
   y += 30;
 
   // ── Conditions de paiement ────────────────────────────────────────────────
