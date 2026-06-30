@@ -11,8 +11,9 @@ jobs:
       - name: Deploy Backend
         run: |
           curl -s -X GET \
+            --max-time 10 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            "http://92.113.29.87:8000/api/v1/deploy?uuid=d11leh5adk10cjhbzuf0fzvq&force=false"
+            "http://92.113.29.87:8000/api/v1/deploy?uuid=d11leh5adk10cjhbzuf0fzvq&force=false" || true
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -20,5 +21,6 @@ jobs:
       - name: Deploy Frontend
         run: |
           curl -s -X GET \
+            --max-time 10 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            "http://92.113.29.87:8000/api/v1/deploy?uuid=v11cghbwlu50qbfgq3ymzkv1&force=false"
+            "http://92.113.29.87:8000/api/v1/deploy?uuid=v11cghbwlu50qbfgq3ymzkv1&force=false" || true
