@@ -269,12 +269,27 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   };
 };
 
-const genererReferenceCommande = () => {
+const genererReferenceCommande = async (prisma) => {
   const date = new Date();
-  const year = date.getFullYear();
+  const day   = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `CMD-${year}${month}-${rand}`;
+  const year  = date.getFullYear();
+  const prefixJour = `CMD-${day}-${month}-${year}-`;
+
+  const derniere = await prisma.commande.findFirst({
+    where: { reference: { startsWith: prefixJour } },
+    orderBy: { reference: 'desc' },
+    select: { reference: true },
+  });
+
+  let numero = 1;
+  if (derniere) {
+    const parts = derniere.reference.split('-');
+    const lastNum = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastNum)) numero = lastNum + 1;
+  }
+
+  return `${prefixJour}${String(numero).padStart(4, '0')}`;
 };
 
 module.exports = { calculerBesoinsCommande, genererReferenceCommande, getZoneInfo, getBordereauPrixUnitaire, TARIF_BORDEREAU };

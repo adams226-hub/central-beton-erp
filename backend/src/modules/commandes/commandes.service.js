@@ -97,7 +97,7 @@ const creerCommande = async (data, userId) => {
   const params = await parametresService.get();
   const cmdOptions = { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais };
   const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0, cmdOptions);
-  const reference = genererReferenceCommande();
+  const reference = await genererReferenceCommande(prisma);
 
   // Exclure les champs non-Prisma du spread (PDF-only ou charges d'exploitation)
   const {
