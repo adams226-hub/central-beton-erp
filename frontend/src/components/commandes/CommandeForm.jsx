@@ -355,7 +355,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                     <input
                       type="number"
                       min="0"
-                      step="500"
+                      step="1"
                       value={customPrixM3 ?? prixUnitaireBordereau}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || null;
