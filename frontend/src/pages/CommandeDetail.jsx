@@ -149,10 +149,14 @@ const CommandeDetail = () => {
   };
 
   const handleOpenProforma = () => {
-    const prixUnit = commande.volumeBeton > 0 ? Math.round((commande.montantCommande || 0) / commande.volumeBeton) : 0;
-    setProformaLignes([
-      { designation: `Béton de ${commande.typeBeton || commande.formulation?.typeBeton || 'C25/30'}`, unite: 'm3', quantite: commande.volumeBeton || 0, prixUnitaire: prixUnit, montant: commande.montantCommande || 0 },
-    ]);
+    if (Array.isArray(commande.proformaLignes) && commande.proformaLignes.length > 0) {
+      setProformaLignes(commande.proformaLignes);
+    } else {
+      const prixUnit = commande.volumeBeton > 0 ? Math.round((commande.montantCommande || 0) / commande.volumeBeton) : 0;
+      setProformaLignes([
+        { designation: `Béton de ${commande.typeBeton || commande.formulation?.typeBeton || 'C25/30'}`, unite: 'm3', quantite: commande.volumeBeton || 0, prixUnitaire: prixUnit, montant: commande.montantCommande || 0 },
+      ]);
+    }
     setShowProformaModal(true);
   };
 

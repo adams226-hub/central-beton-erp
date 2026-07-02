@@ -97,9 +97,12 @@ const genererPDF = asyncHandler(async (req, res) => {
 
 const genererFactureProforma = asyncHandler(async (req, res) => {
   const commande = await service.getCommande(req.params.id);
-  const lignesAuto = Array.isArray(commande.lignes) && commande.lignes.length > 1
-    ? commande.lignes.map((l, i) => ({ designation: `Béton de ${l.typeBeton}`, unite: 'm3', quantite: l.volumeBeton, prixUnitaire: l.prixM3 || (l.volumeBeton > 0 ? Math.round(l.montant / l.volumeBeton) : 0), montant: l.montant }))
-    : null;
+  // Priorité : lignes proforma sauvegardées > multi-béton > null (ligne unique auto)
+  const lignesAuto = Array.isArray(commande.proformaLignes) && commande.proformaLignes.length > 0
+    ? commande.proformaLignes
+    : Array.isArray(commande.lignes) && commande.lignes.length > 1
+      ? commande.lignes.map((l) => ({ designation: `Béton de ${l.typeBeton}`, unite: 'm3', quantite: l.volumeBeton, prixUnitaire: l.prixM3 || (l.volumeBeton > 0 ? Math.round(l.montant / l.volumeBeton) : 0), montant: l.montant }))
+      : null;
   const doc = generateFactureProforma(commande, lignesAuto);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="proforma-${commande.reference}.pdf"`);
@@ -110,6 +113,10 @@ const genererFactureProforma = asyncHandler(async (req, res) => {
 const genererFactureProformaCustom = asyncHandler(async (req, res) => {
   const commande = await service.getCommande(req.params.id);
   const lignes = Array.isArray(req.body.lignes) && req.body.lignes.length > 0 ? req.body.lignes : null;
+  // Sauvegarder les lignes en base pour persistence
+  if (lignes) {
+    await prisma.commande.update({ where: { id: req.params.id }, data: { proformaLignes: lignes } });
+  }
   const doc = generateFactureProforma(commande, lignes);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="proforma-${commande.reference}.pdf"`);

@@ -339,6 +339,9 @@ model Commande {
   // Multi-lignes béton (Plan B — JSON)
   lignes Json?
 
+  // Lignes proforma personnalisées (sauvegardées depuis le modal proforma)
+  proformaLignes Json?
+
   // Charges d'exploitation & bénéfice réel
   chargesExploitation Float?
   beneficeReel        Float?
