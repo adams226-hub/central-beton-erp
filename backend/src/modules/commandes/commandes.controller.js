@@ -97,7 +97,10 @@ const genererPDF = asyncHandler(async (req, res) => {
 
 const genererFactureProforma = asyncHandler(async (req, res) => {
   const commande = await service.getCommande(req.params.id);
-  const doc = generateFactureProforma(commande);
+  const lignesAuto = Array.isArray(commande.lignes) && commande.lignes.length > 1
+    ? commande.lignes.map((l, i) => ({ designation: `Béton de ${l.typeBeton}`, unite: 'm3', quantite: l.volumeBeton, prixUnitaire: l.prixM3 || (l.volumeBeton > 0 ? Math.round(l.montant / l.volumeBeton) : 0), montant: l.montant }))
+    : null;
+  const doc = generateFactureProforma(commande, lignesAuto);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="proforma-${commande.reference}.pdf"`);
   doc.pipe(res);

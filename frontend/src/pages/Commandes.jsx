@@ -182,7 +182,10 @@ const Commandes = () => {
                   </td>
                   <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{formatVolume(cmd.volumeBeton)}</td>
                   <td className="px-4 py-3">
-                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{cmd.typeBeton}</span>
+                    {Array.isArray(cmd.lignes) && cmd.lignes.length > 1
+                      ? <div className="flex flex-wrap gap-1">{cmd.lignes.map((l, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{l.typeBeton}</span>)}</div>
+                      : <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{cmd.typeBeton}</span>
+                    }
                   </td>
                   <td className="px-4 py-3 text-gray-700 whitespace-nowrap text-xs">
                     {cmd.montantCommande ? formatMontant(cmd.montantCommande) : '-'}
