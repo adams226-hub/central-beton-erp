@@ -62,7 +62,7 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const AMORT_CHARGEUSE_FACTOR  = 1.1;
   const VOYAGES_CAPACITE        = 10;   // m³ par voyage
 
-  const { heures: heuresZone } = getZoneInfo(d);
+  const { heures: heuresZone, zone: zoneNum } = getZoneInfo(d);
   const Nvoyage = d > 0 ? Math.ceil(v / VOYAGES_CAPACITE) : 0;
   const ratio   = v / VOL_REF;
 
@@ -131,13 +131,11 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const AMORT_GROUPE_RATE    = 7500;
   const AMORT_CHARGEUSE_RATE = 45550;
 
-  // Toupie & Pompe : métrique mixte (heuresZone × 1.3 + volume) / 100
-  const amortBaseMixte = (heuresZone * 1.3 + v) / 100;
-  const amortToupieH   = amortBaseMixte;
-  const amortToupieF   = amortBaseMixte * AMORT_TOUPIE_RATE;
+  const amortToupieH   = zoneNum > 0 ? Nvoyage * zoneNum : 0;
+  const amortToupieF   = amortToupieH * AMORT_TOUPIE_RATE;
 
-  const amortPompeH    = amortBaseMixte;
-  const amortPompeF    = amortBaseMixte * AMORT_POMPE_RATE;
+  const amortPompeH    = zoneNum > 0 ? (v / 100) * 1.3 + zoneNum : 0;
+  const amortPompeF    = amortPompeH * AMORT_POMPE_RATE;
 
   // Groupe & Chargeuse : métrique volume (volume / 60) × facteur
   const amortGroupeH    = (v / 60) * AMORT_GROUPE_FACTOR;
