@@ -87,19 +87,7 @@ const getCommande = async (id) => {
   return commande;
 };
 
-const creerCommande = async (data, userId) => {
-  const formulation = data.formulationId
-    ? await prisma.formulation.findUnique({ where: { id: data.formulationId } })
-    : await prisma.formulation.findFirst({ where: { typeBeton: data.typeBeton, isActive: true } });
-
-  if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
-
-  const params = await parametresService.get();
-  const cmdOptions = { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais };
-  const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0, cmdOptions);
-  const reference = await genererReferenceCommande(prisma);
-
-  // Exclure les champs non-Prisma du spread (PDF-only ou charges d'exploitation)
+const _calculsExclus = (calculs) => {
   const {
     fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
     coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
@@ -114,8 +102,65 @@ const creerCommande = async (data, userId) => {
     nbRepas, prixRepas,
     fraisSupp,
     montantRemise, montantApresRemise,
-    ...calculsDB
+    ...rest
   } = calculs;
+  return { rest, montantApresRemise };
+};
+
+const creerCommande = async (data, userId) => {
+  const params = await parametresService.get();
+  const cmdOptions = { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais };
+  const reference = await genererReferenceCommande(prisma);
+
+  const isMulti = Array.isArray(data.lignes) && data.lignes.length > 1;
+
+  let calculsDB, montantFinal, volumeTotal, typeBetonPrincipal, formulationPrincipale, lignesStockees;
+
+  if (isMulti) {
+    // ── Calcul par ligne ────────────────────────────────────────────────────
+    const lignesCalculees = [];
+    const somme = {};
+
+    for (const ligne of data.lignes) {
+      const f = ligne.formulationId
+        ? await prisma.formulation.findUnique({ where: { id: ligne.formulationId } })
+        : await prisma.formulation.findFirst({ where: { typeBeton: ligne.typeBeton, isActive: true } });
+      if (!f) throw Object.assign(new Error(`Formulation introuvable pour ${ligne.typeBeton}`), { statusCode: 400 });
+
+      const c = calculerBesoinsCommande(parseFloat(ligne.volumeBeton), f, parseFloat(ligne.montant) || 0, data.distanceLivraison || 0, params, 0, cmdOptions);
+      lignesCalculees.push({ typeBeton: ligne.typeBeton, volumeBeton: parseFloat(ligne.volumeBeton), formulationId: f.id, montant: parseFloat(ligne.montant) || 0, prixM3: ligne.prixM3 || null });
+
+      // Sommer les champs numériques DB
+      const { rest } = _calculsExclus(c);
+      for (const [k, v] of Object.entries(rest)) {
+        if (typeof v === 'number') somme[k] = (somme[k] || 0) + v;
+      }
+    }
+
+    volumeTotal = data.lignes.reduce((s, l) => s + parseFloat(l.volumeBeton || 0), 0);
+    montantFinal = data.lignes.reduce((s, l) => s + parseFloat(l.montant || 0), 0);
+    typeBetonPrincipal = data.lignes[0].typeBeton;
+    formulationPrincipale = lignesCalculees[0].formulationId;
+    calculsDB = somme;
+    lignesStockees = lignesCalculees;
+
+  } else {
+    // ── Commande mono-ligne (logique existante) ─────────────────────────────
+    const formulation = data.formulationId
+      ? await prisma.formulation.findUnique({ where: { id: data.formulationId } })
+      : await prisma.formulation.findFirst({ where: { typeBeton: data.typeBeton, isActive: true } });
+    if (!formulation) throw Object.assign(new Error('Formulation introuvable pour ce type de béton'), { statusCode: 400 });
+
+    const calculs = calculerBesoinsCommande(data.volumeBeton, formulation, data.montantCommande || 0, data.distanceLivraison || 0, params, data.remisePct || 0, cmdOptions);
+    const { rest, montantApresRemise } = _calculsExclus(calculs);
+
+    volumeTotal = parseFloat(data.volumeBeton);
+    montantFinal = montantApresRemise > 0 ? montantApresRemise : (data.montantCommande ? parseFloat(data.montantCommande) : null);
+    typeBetonPrincipal = data.typeBeton;
+    formulationPrincipale = formulation.id;
+    calculsDB = rest;
+    lignesStockees = null;
+  }
 
   const commande = await prisma.commande.create({
     data: {
@@ -126,14 +171,14 @@ const creerCommande = async (data, userId) => {
       ifu: data.ifu || null,
       rccm: data.rccm || null,
       regimeImposition: data.regimeImposition || null,
-      volumeBeton: parseFloat(data.volumeBeton),
-      typeBeton: data.typeBeton,
+      volumeBeton: volumeTotal,
+      typeBeton: typeBetonPrincipal,
       ...(data.dateLivraison ? { dateLivraison: new Date(data.dateLivraison) } : {}),
       observations: data.observations,
       statut: 'EN_ATTENTE_SECRETAIRE',
-      formulationId: formulation.id,
+      formulationId: formulationPrincipale,
       createdById: userId,
-      montantCommande: montantApresRemise > 0 ? montantApresRemise : (data.montantCommande ? parseFloat(data.montantCommande) : null),
+      montantCommande: montantFinal,
       remisePct: data.remisePct ? parseFloat(data.remisePct) : 0,
       distanceLivraison: data.distanceLivraison ? parseFloat(data.distanceLivraison) : 0,
       includePersonnel:    data.includePersonnel    !== undefined ? data.includePersonnel    : true,
@@ -144,6 +189,7 @@ const creerCommande = async (data, userId) => {
       useRetardateur:  data.useRetardateur  !== undefined ? Boolean(data.useRetardateur)  : false,
       useAccelerateur: data.useAccelerateur !== undefined ? Boolean(data.useAccelerateur) : false,
       useHydrofuge:    data.useHydrofuge    !== undefined ? Boolean(data.useHydrofuge)    : false,
+      ...(lignesStockees ? { lignes: lignesStockees } : {}),
       ...calculsDB,
     },
     include: { createdBy: { select: { nom: true, prenom: true } }, formulation: true },

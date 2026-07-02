@@ -131,24 +131,41 @@ const generateDevis = (commande, calculs) => {
     BLEU, [BLANC, BLANC, BLANC, BLANC, BLANC], [true, true, true, true, true]);
   y += 16;
 
-  // Si remise → recalculer le montant brut avant remise pour affichage
-  const montantBrutDevis = (c.remisePct > 0 && c.montantCommande)
-    ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
-    : (c.montantCommande || 0);
-  const deductionRemiseDevis = montantBrutDevis - (c.montantCommande || 0);
-  const montantBaseDevis = montantBrutDevis;
-  // Prix NET après remise (montantCommande est déjà post-remise)
-  const remiseDevis = parseFloat(c.remisePct) || 0;
-  const netFactorDevis = 1 - remiseDevis / 100;
-  const montantNetBetonDevis = Math.round(montantBaseDevis * netFactorDevis);
-  const prixNetBetonM3Devis = c.volumeBeton > 0 ? Math.round(montantNetBetonDevis / c.volumeBeton) : 0;
-  const labelRemiseDevis = remiseDevis > 0 ? ` (remise ${fmtD(remiseDevis)}%)` : '';
+  const lignes = Array.isArray(c.lignes) && c.lignes.length > 1 ? c.lignes : null;
 
-  drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
-    [`Béton prêt à l'emploi ${c.typeBeton || ''}${labelRemiseDevis}`, 'm³', fmtD(c.volumeBeton),
-      prixNetBetonM3Devis > 0 ? fmtF(prixNetBetonM3Devis) + '/m³' : '—', fmtF(montantNetBetonDevis)],
-    '#fff7ed', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
-  y += ROW_H;
+  if (lignes) {
+    // ── Multi-lignes ────────────────────────────────────────────────────────
+    lignes.forEach((lg, i) => {
+      const prixM3 = lg.prixM3 || (lg.volumeBeton > 0 ? Math.round(lg.montant / lg.volumeBeton) : 0);
+      drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
+        [`Béton prêt à l'emploi ${lg.typeBeton || ''}`, 'm³', fmtD(lg.volumeBeton),
+          prixM3 > 0 ? fmtF(prixM3) + '/m³' : '—', fmtF(lg.montant)],
+        i % 2 === 0 ? '#fff7ed' : GRIS_LEGER, [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
+      y += ROW_H;
+    });
+    // Ligne total multi-lignes
+    const totalLignes = lignes.reduce((s, l) => s + (l.montant || 0), 0);
+    const volTotal = lignes.reduce((s, l) => s + (l.volumeBeton || 0), 0);
+    drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
+      ['TOTAL', 'm³', fmtD(volTotal), '—', fmtF(totalLignes)],
+      BLEU_CLAIR, [BLEU_FONCE, BLEU_FONCE, BLEU_FONCE, BLEU_FONCE, BLEU_FONCE], [true, true, true, true, true]);
+    y += ROW_H;
+  } else {
+    // ── Mono-ligne (logique existante) ─────────────────────────────────────
+    const montantBrutDevis = (c.remisePct > 0 && c.montantCommande)
+      ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
+      : (c.montantCommande || 0);
+    const remiseDevis = parseFloat(c.remisePct) || 0;
+    const montantNetBetonDevis = Math.round(montantBrutDevis * (1 - remiseDevis / 100));
+    const prixNetBetonM3Devis = c.volumeBeton > 0 ? Math.round(montantNetBetonDevis / c.volumeBeton) : 0;
+    const labelRemiseDevis = remiseDevis > 0 ? ` (remise ${fmtD(remiseDevis)}%)` : '';
+
+    drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
+      [`Béton prêt à l'emploi ${c.typeBeton || ''}${labelRemiseDevis}`, 'm³', fmtD(c.volumeBeton),
+        prixNetBetonM3Devis > 0 ? fmtF(prixNetBetonM3Devis) + '/m³' : '—', fmtF(montantNetBetonDevis)],
+      '#fff7ed', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
+    y += ROW_H;
+  }
 
   if (distance > 0 && k.fraisTransport > 0) {
     drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],

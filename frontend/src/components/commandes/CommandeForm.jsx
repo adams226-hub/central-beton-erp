@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Calculator, Save, X, Edit3, RefreshCw, ChevronDown, ChevronUp, MapPin, Tag } from 'lucide-react';
+import { Calculator, Save, X, Edit3, RefreshCw, ChevronDown, ChevronUp, MapPin, Tag, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { formulationsAPI, commandesAPI } from '../../api';
@@ -64,6 +64,11 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const [formulationId, setFormulationId] = useState(commande?.formulationId || '');
   const [zoneManuelle, setZoneManuelle] = useState(null); // null = auto-détectée depuis distance
   const [customPrixM3, setCustomPrixM3] = useState(null); // null = utiliser le bordereau
+  const [lignesExtras, setLignesExtras] = useState([]); // lignes supplémentaires de béton
+
+  const addLigneExtra = () => setLignesExtras(prev => [...prev, { id: Date.now(), typeBeton: '', volumeBeton: '' }]);
+  const removeLigneExtra = (idx) => setLignesExtras(prev => prev.filter((_, i) => i !== idx));
+  const updateLigneExtra = (idx, field, val) => setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, [field]: val } : lg));
 
   const { data: formulationsData } = useQuery({
     queryKey: ['formulations'],
@@ -185,14 +190,25 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       const payload = {
         ...data,
         formulationId: formulationId || undefined,
-        // Envoyer les overrides si l'utilisateur a modifié des calculs
-        ...(Object.keys(overrides).length > 0 ? {
-          _calculsOverrides: {
-            ...calculs,
-            ...overrides,
-          }
-        } : {}),
+        ...(Object.keys(overrides).length > 0 ? { _calculsOverrides: { ...calculs, ...overrides } } : {}),
       };
+
+      if (lignesExtras.length > 0) {
+        const prixM3Principal = customPrixM3 ?? prixUnitaireBordereau;
+        const montantPrincipal = parseFloat(data.montantCommande) || 0;
+        const lignes = [
+          { typeBeton: data.typeBeton, volumeBeton: parseFloat(data.volumeBeton) || 0, prixM3: prixM3Principal, montant: montantPrincipal },
+          ...lignesExtras.map(lg => {
+            const pm3 = zone && lg.typeBeton ? (TARIF_BORDEREAU[zone]?.[lg.typeBeton] ?? null) : null;
+            const mt = pm3 && lg.volumeBeton ? Math.round(pm3 * parseFloat(lg.volumeBeton)) : 0;
+            return { typeBeton: lg.typeBeton, volumeBeton: parseFloat(lg.volumeBeton) || 0, prixM3: pm3, montant: mt };
+          }),
+        ];
+        payload.lignes = lignes;
+        payload.montantCommande = lignes.reduce((s, l) => s + l.montant, 0);
+        payload.volumeBeton = lignes.reduce((s, l) => s + l.volumeBeton, 0);
+        payload.typeBeton = lignes[0].typeBeton;
+      }
 
       if (isEdit) {
         await commandesAPI.modifier(commande.id, payload);
@@ -377,6 +393,62 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
               </motion.div>
             </div>
           )}
+
+          {/* Lignes supplémentaires de béton */}
+          <div className="md:col-span-3 space-y-2">
+            {lignesExtras.map((lg, idx) => {
+              const pm3 = zone && lg.typeBeton ? (TARIF_BORDEREAU[zone]?.[lg.typeBeton] ?? null) : null;
+              const mt = pm3 && lg.volumeBeton ? Math.round(pm3 * parseFloat(lg.volumeBeton)) : null;
+              return (
+                <div key={lg.id} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3 flex-wrap">
+                  <select
+                    value={lg.typeBeton}
+                    onChange={(e) => updateLigneExtra(idx, 'typeBeton', e.target.value)}
+                    className="amp-input flex-1 min-w-[140px]"
+                  >
+                    <option value="">Type béton...</option>
+                    {formulationsData?.map((f) => (
+                      <option key={f.id} value={f.typeBeton}>{f.typeBeton} — {f.nom}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" step="0.5" min="1" placeholder="Volume m³"
+                      value={lg.volumeBeton}
+                      onChange={(e) => updateLigneExtra(idx, 'volumeBeton', e.target.value)}
+                      className="amp-input w-28 text-sm"
+                    />
+                    <span className="text-xs text-gray-400">m³</span>
+                  </div>
+                  {pm3 && <span className="text-xs text-blue-700 font-medium">{pm3.toLocaleString('fr-FR')} FCFA/m³</span>}
+                  {mt && <span className="text-xs text-green-700 font-bold">{mt.toLocaleString('fr-FR')} FCFA</span>}
+                  <button type="button" onClick={() => removeLigneExtra(idx)} className="text-red-400 hover:text-red-600 ml-auto">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addLigneExtra}
+              className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-medium border border-dashed border-blue-300 rounded-xl px-4 py-2 hover:bg-blue-50 transition-colors w-full justify-center"
+            >
+              <Plus size={14} /> Ajouter un type de béton
+            </button>
+            {lignesExtras.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2 flex justify-between text-sm font-bold text-green-800">
+                <span>Total commande</span>
+                <span>
+                  {(parseFloat(watch('volumeBeton')) || 0) + lignesExtras.reduce((s, l) => s + (parseFloat(l.volumeBeton) || 0), 0)} m³
+                  {' — '}
+                  {((parseFloat(watch('montantCommande')) || 0) + lignesExtras.reduce((s, l) => {
+                    const pm3 = zone && l.typeBeton ? (TARIF_BORDEREAU[zone]?.[l.typeBeton] ?? 0) : 0;
+                    return s + (pm3 && l.volumeBeton ? Math.round(pm3 * parseFloat(l.volumeBeton)) : 0);
+                  }, 0)).toLocaleString('fr-FR')} FCFA
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Additifs (coûts de production internes) */}
           {formulationId && (

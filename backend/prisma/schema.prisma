@@ -336,6 +336,9 @@ model Commande {
   distanceLivraison   Float?  @default(0)
   fraisTransport      Float?
 
+  // Multi-lignes béton (Plan B — JSON)
+  lignes Json?
+
   // Charges d'exploitation & bénéfice réel
   chargesExploitation Float?
   beneficeReel        Float?
