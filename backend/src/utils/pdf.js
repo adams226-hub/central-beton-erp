@@ -139,7 +139,7 @@ const generateDevis = (commande, calculs) => {
       const prixM3 = lg.prixM3 || (lg.volumeBeton > 0 ? Math.round(lg.montant / lg.volumeBeton) : 0);
       drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
         [`Béton prêt à l'emploi ${lg.typeBeton || ''}`, 'm³', fmtD(lg.volumeBeton),
-          prixM3 > 0 ? fmtF(prixM3) + '/m³' : '—', fmtF(lg.montant)],
+          prixM3 > 0 ? fmt(prixM3) + ' F/m³' : '—', fmt(lg.montant)],
         i % 2 === 0 ? '#fff7ed' : GRIS_LEGER, [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
       y += ROW_H;
     });
@@ -147,7 +147,7 @@ const generateDevis = (commande, calculs) => {
     const totalLignes = lignes.reduce((s, l) => s + (l.montant || 0), 0);
     const volTotal = lignes.reduce((s, l) => s + (l.volumeBeton || 0), 0);
     drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
-      ['TOTAL', 'm³', fmtD(volTotal), '—', fmtF(totalLignes)],
+      ['TOTAL', 'm³', fmtD(volTotal), '—', fmt(totalLignes)],
       BLEU_CLAIR, [BLEU_FONCE, BLEU_FONCE, BLEU_FONCE, BLEU_FONCE, BLEU_FONCE], [true, true, true, true, true]);
     y += ROW_H;
   } else {
