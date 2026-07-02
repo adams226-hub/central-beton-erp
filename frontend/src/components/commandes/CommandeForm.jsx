@@ -66,9 +66,13 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const [customPrixM3, setCustomPrixM3] = useState(null); // null = utiliser le bordereau
   const [lignesExtras, setLignesExtras] = useState([]); // lignes supplémentaires de béton
 
-  const addLigneExtra = () => setLignesExtras(prev => [...prev, { id: Date.now(), typeBeton: '', volumeBeton: '' }]);
+  const addLigneExtra = () => setLignesExtras(prev => [...prev, { id: Date.now(), typeBeton: '', formulationId: '', volumeBeton: '' }]);
   const removeLigneExtra = (idx) => setLignesExtras(prev => prev.filter((_, i) => i !== idx));
   const updateLigneExtra = (idx, field, val) => setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, [field]: val } : lg));
+  const updateLigneExtraType = (idx, typeBeton) => {
+    const found = formulationsData?.find(f => f.typeBeton === typeBeton);
+    setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, typeBeton, formulationId: found?.id || '' } : lg));
+  };
 
   const { data: formulationsData } = useQuery({
     queryKey: ['formulations'],
@@ -197,11 +201,11 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
         const prixM3Principal = customPrixM3 ?? prixUnitaireBordereau;
         const montantPrincipal = parseFloat(data.montantCommande) || 0;
         const lignes = [
-          { typeBeton: data.typeBeton, volumeBeton: parseFloat(data.volumeBeton) || 0, prixM3: prixM3Principal, montant: montantPrincipal },
+          { typeBeton: data.typeBeton, volumeBeton: parseFloat(data.volumeBeton) || 0, prixM3: prixM3Principal, montant: montantPrincipal, formulationId: formulationId || undefined },
           ...lignesExtras.map(lg => {
             const pm3 = zone && lg.typeBeton ? (TARIF_BORDEREAU[zone]?.[lg.typeBeton] ?? null) : null;
             const mt = pm3 && lg.volumeBeton ? Math.round(pm3 * parseFloat(lg.volumeBeton)) : 0;
-            return { typeBeton: lg.typeBeton, volumeBeton: parseFloat(lg.volumeBeton) || 0, prixM3: pm3, montant: mt };
+            return { typeBeton: lg.typeBeton, volumeBeton: parseFloat(lg.volumeBeton) || 0, prixM3: pm3, montant: mt, formulationId: lg.formulationId || undefined };
           }),
         ];
         payload.lignes = lignes;
@@ -403,7 +407,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                 <div key={lg.id} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3 flex-wrap">
                   <select
                     value={lg.typeBeton}
-                    onChange={(e) => updateLigneExtra(idx, 'typeBeton', e.target.value)}
+                    onChange={(e) => updateLigneExtraType(idx, e.target.value)}
                     className="amp-input flex-1 min-w-[140px]"
                   >
                     <option value="">Type béton...</option>
