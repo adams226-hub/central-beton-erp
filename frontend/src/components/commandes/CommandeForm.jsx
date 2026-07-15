@@ -74,8 +74,12 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
   const removeLigneExtra = (idx) => setLignesExtras(prev => prev.filter((_, i) => i !== idx));
   const updateLigneExtra = (idx, field, val) => setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, [field]: val } : lg));
   const updateLigneExtraType = (idx, typeBeton) => {
-    const found = formulationsData?.find(f => f.typeBeton === typeBeton);
-    setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, typeBeton, formulationId: found?.id || '' } : lg));
+    const matches = formulationsData?.filter(f => f.typeBeton === typeBeton) || [];
+    const formulationId = matches.length === 1 ? matches[0].id : '';
+    setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, typeBeton, formulationId } : lg));
+  };
+  const updateLigneExtraFormulation = (idx, formulationId) => {
+    setLignesExtras(prev => prev.map((lg, i) => i === idx ? { ...lg, formulationId } : lg));
   };
 
   const { data: formulationsData } = useQuery({
@@ -121,16 +125,42 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
 
   const [volume, typeBeton, montantCommande, distanceLivraison, includePersonnel, includeRestauration, fraisPeage, autresFrais, useRetardateur, useAccelerateur, useHydrofuge] = watch(['volumeBeton', 'typeBeton', 'montantCommande', 'distanceLivraison', 'includePersonnel', 'includeRestauration', 'fraisPeage', 'autresFrais', 'useRetardateur', 'useAccelerateur', 'useHydrofuge']);
 
-  // Auto-sélection de la formulation quand le type béton change
+  // Types de béton uniques (menu principal) — une seule entrée même si plusieurs formulations partagent le type
+  const typesBetonUniques = React.useMemo(() => {
+    if (!formulationsData) return [];
+    const vus = new Set();
+    return formulationsData.filter((f) => {
+      if (vus.has(f.typeBeton)) return false;
+      vus.add(f.typeBeton);
+      return true;
+    });
+  }, [formulationsData]);
+
+  // Formulations disponibles pour le type béton sélectionné
+  const formulationsMatches = React.useMemo(
+    () => (typeBeton && formulationsData ? formulationsData.filter((f) => f.typeBeton === typeBeton) : []),
+    [typeBeton, formulationsData]
+  );
+
+  const appliquerFormulation = (found) => {
+    if (!found) return;
+    setFormulationId(found.id);
+    setOverrides({});
+    setValue('useRetardateur',  (found.retardateur  || 0) > 0, { shouldValidate: false });
+    setValue('useAccelerateur', (found.accelerateur || 0) > 0, { shouldValidate: false });
+    setValue('useHydrofuge',    (found.hydrofuge    || 0) > 0, { shouldValidate: false });
+  };
+
+  // Auto-sélection de la formulation quand le type béton change —
+  // seulement si une seule formulation existe pour ce type. S'il y en a
+  // plusieurs, l'utilisateur doit choisir explicitement via le sélecteur.
   useEffect(() => {
-    if (typeBeton && formulationsData) {
-      const found = formulationsData.find((f) => f.typeBeton === typeBeton);
-      if (found) {
-        setFormulationId(found.id);
-        setOverrides({});
-        setValue('useRetardateur',  (found.retardateur  || 0) > 0, { shouldValidate: false });
-        setValue('useAccelerateur', (found.accelerateur || 0) > 0, { shouldValidate: false });
-        setValue('useHydrofuge',    (found.hydrofuge    || 0) > 0, { shouldValidate: false });
+    if (!typeBeton || !formulationsData) return;
+    if (formulationsMatches.length === 1) {
+      appliquerFormulation(formulationsMatches[0]);
+    } else if (formulationsMatches.length > 1) {
+      if (!formulationsMatches.find((f) => f.id === formulationId)) {
+        setFormulationId('');
       }
     }
   }, [typeBeton, formulationsData]);
@@ -300,12 +330,28 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Type de béton *</label>
             <select {...register('typeBeton')} className="amp-input">
               <option value="">Sélectionner...</option>
-              {formulationsData?.map((f) => (
-                <option key={f.id} value={f.typeBeton}>{f.typeBeton} — {f.nom}</option>
+              {typesBetonUniques.map((f) => (
+                <option key={f.typeBeton} value={f.typeBeton}>{f.typeBeton}</option>
               ))}
             </select>
             {errors.typeBeton && <p className="text-red-500 text-xs mt-1">{errors.typeBeton.message}</p>}
           </div>
+          {formulationsMatches.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Formulation *</label>
+              <select
+                value={formulationId}
+                onChange={(e) => appliquerFormulation(formulationsMatches.find((f) => f.id === e.target.value))}
+                className="amp-input"
+              >
+                <option value="">Sélectionner...</option>
+                {formulationsMatches.map((f) => (
+                  <option key={f.id} value={f.id}>{f.nom}</option>
+                ))}
+              </select>
+              {!formulationId && <p className="text-red-500 text-xs mt-1">Choisis la formulation à utiliser</p>}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date de livraison</label>
             <input {...register('dateLivraison')} type="date" min={new Date().toISOString().split('T')[0]} className="amp-input" />
@@ -413,6 +459,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
             {lignesExtras.map((lg, idx) => {
               const pm3 = zone && lg.typeBeton ? (TARIF_BORDEREAU[zone]?.[lg.typeBeton] ?? null) : null;
               const mt = pm3 && lg.volumeBeton ? Math.round(pm3 * parseFloat(lg.volumeBeton)) : null;
+              const lgMatches = lg.typeBeton && formulationsData ? formulationsData.filter(f => f.typeBeton === lg.typeBeton) : [];
               return (
                 <div key={lg.id} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3 flex-wrap">
                   <select
@@ -421,10 +468,22 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                     className="amp-input flex-1 min-w-[140px]"
                   >
                     <option value="">Type béton...</option>
-                    {formulationsData?.map((f) => (
-                      <option key={f.id} value={f.typeBeton}>{f.typeBeton} — {f.nom}</option>
+                    {typesBetonUniques.map((f) => (
+                      <option key={f.typeBeton} value={f.typeBeton}>{f.typeBeton}</option>
                     ))}
                   </select>
+                  {lgMatches.length > 1 && (
+                    <select
+                      value={lg.formulationId}
+                      onChange={(e) => updateLigneExtraFormulation(idx, e.target.value)}
+                      className="amp-input flex-1 min-w-[160px] border-orange-400"
+                    >
+                      <option value="">Formulation...</option>
+                      {lgMatches.map((f) => (
+                        <option key={f.id} value={f.id}>{f.nom}</option>
+                      ))}
+                    </select>
+                  )}
                   <div className="flex items-center gap-1">
                     <input
                       type="number" step="0.5" min="1" placeholder="Volume m³"
