@@ -274,22 +274,11 @@ const genererReferenceCommande = async (prisma) => {
   const year  = date.getFullYear();
   const prefixJour = `CMD-${day}-${month}-${year}-`;
 
-  // Numéro séquentiel global — ne repart pas à zéro chaque jour
-  const [total, derniere] = await Promise.all([
-    prisma.commande.count(),
-    prisma.commande.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { reference: true },
-    }),
-  ]);
-
-  // Prend le max entre (total+1) et (dernier numéro+1) pour résister aux suppressions
-  let numero = total + 1;
-  if (derniere) {
-    const parts = derniere.reference.split('-');
-    const lastNum = parseInt(parts[parts.length - 1], 10);
-    if (!isNaN(lastNum) && lastNum >= numero) numero = lastNum + 1;
-  }
+  // Numéro séquentiel global via séquence Postgres native — jamais réutilisé,
+  // même après suppression de commandes, et sûr en cas de créations simultanées
+  // (contrairement à un calcul basé sur count() des lignes existantes).
+  const [{ nextval }] = await prisma.$queryRaw`SELECT nextval('commande_reference_seq') AS nextval`;
+  const numero = Number(nextval);
 
   return `${prefixJour}${String(numero).padStart(4, '0')}`;
 };
