@@ -60,10 +60,10 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const AMORT_POMPE_FACTOR      = 1.3;
   const AMORT_GROUPE_FACTOR     = 1.3;
   const AMORT_CHARGEUSE_FACTOR  = 1.1;
-  const VOYAGES_CAPACITE        = 10;   // m³ par voyage
+  const VOYAGES_CAPACITE        = 11;   // m³ par voyage
 
   const { heures: heuresZone, zone: zoneNum } = getZoneInfo(d);
-  const Nvoyage = d > 0 ? Math.ceil(v / VOYAGES_CAPACITE) : 0;
+  const Nvoyage = d > 0 ? Math.ceil(v / VOYAGES_CAPACITE) + 2 : 0;
   const ratio   = v / VOL_REF;
 
   // ── 1. MATIÈRES PREMIÈRES ────────────────────────────────────────────────
@@ -131,10 +131,10 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   const AMORT_GROUPE_RATE    = 7500;
   const AMORT_CHARGEUSE_RATE = 45550;
 
-  const amortToupieH   = zoneNum > 0 ? Nvoyage * zoneNum : 0;
+  const amortToupieH   = zoneNum > 0 ? Nvoyage * heuresZone : 0;
   const amortToupieF   = amortToupieH * AMORT_TOUPIE_RATE;
 
-  const amortPompeH    = zoneNum > 0 ? (v / 100) * 1.3 + zoneNum : 0;
+  const amortPompeH    = zoneNum > 0 ? (v / 100) * 1.3 + heuresZone : 0;
   const amortPompeF    = amortPompeH * AMORT_POMPE_RATE;
 
   // Groupe & Chargeuse : métrique volume (volume / 60) × facteur
