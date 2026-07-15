@@ -114,7 +114,7 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
     gasoilToupieL   = (d * CONSO_TOUPIE_VIDE + d * CONSO_TOUPIE_PLEIN) * Nvoyage
                       + Nvoyage * CONSO_IDLE;
     gasoilChargeurL = (v * CONSO_CHARGEUR_REF) / VOL_REF;
-    gasoilPompeL    = v + (d * CONSO_TOUPIE_PLEIN * 2);
+    gasoilPompeL    = (v * 0.90) + (d * CONSO_TOUPIE_PLEIN * 2);
     coutGasoil      = (gasoilGroupeL + gasoilToupieL + gasoilChargeurL + gasoilPompeL) * PRIX_GASOIL;
   } else {
     gasoilGroupeL   = f.gasoilGroupe   * ratio;
