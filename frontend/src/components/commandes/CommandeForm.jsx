@@ -27,6 +27,10 @@ const getZoneAuto = (km) => {
   if (d > 100 && d <= 150) return 'ZONE3';
   return null;
 };
+// Distance représentative utilisée quand l'utilisateur choisit une zone
+// manuellement sans saisir de km — évite que gasoil/heures toupie-pompe
+// restent à 0 faute de distance réelle.
+const ZONE_KM_REPRESENTATIF = { ZONE1: 25, ZONE2: 75, ZONE3: 125 };
 
 const schema = z.object({
   nomClient: z.string().min(2, 'Nom requis (min 2 caractères)'),
@@ -328,7 +332,13 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
                       <button
                         key={z.id}
                         type="button"
-                        onClick={() => setZoneManuelle(zoneManuelle === z.id ? null : z.id)}
+                        onClick={() => {
+                          const isDeselecting = zoneManuelle === z.id;
+                          setZoneManuelle(isDeselecting ? null : z.id);
+                          if (!isDeselecting && !distanceLivraison) {
+                            setValue('distanceLivraison', ZONE_KM_REPRESENTATIF[z.id], { shouldValidate: false });
+                          }
+                        }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                           isActive
                             ? 'bg-blue-700 text-white border-blue-700'
