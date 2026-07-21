@@ -1,123 +1,134 @@
 const prisma = require('../../config/prisma');
 
-const getDateRange = (debut, fin) => {
+// Le frontend envoie tantôt dateDebut/dateFin (pages Rapports/Dashboard), tantôt debut/fin
+// (export PDF/Excel) — on accepte les deux pour que le filtre de période fonctionne partout.
+const getDateRange = (params = {}) => {
+  const debut = params.dateDebut || params.debut;
+  const fin = params.dateFin || params.fin;
   const d = debut ? new Date(debut) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const f = fin ? new Date(fin) : new Date();
   return { gte: d, lte: f };
 };
 
 const tableauDeBordPDG = async (params) => {
-  const range = getDateRange(params.debut, params.fin);
+  const range = getDateRange(params);
 
   const [
-    statsCommandes, statsProduction, statsPaiements, statsStocks,
-    commandesRecentes, productionsRecentes
+    commandesPeriode, statsPaiements, statsStocks,
+    commandesActives, livraisonsEnCours, paiementsEnAttente,
   ] = await prisma.$transaction([
-    // Commandes
-    prisma.commande.groupBy({
-      by: ['statut'],
+    prisma.commande.findMany({
       where: { createdAt: range },
-      _count: { id: true },
-      _sum: { montantCommande: true, beneficeNetReel: true },
+      select: {
+        id: true, reference: true, nomClient: true, volumeBeton: true,
+        montantCommande: true, beneficeNetReel: true, margePrevisionnelle: true, statut: true,
+      },
+      orderBy: { createdAt: 'desc' },
     }),
-    // Production
-    prisma.production.aggregate({
-      where: { createdAt: range },
-      _sum: { volumeProduit: true, coutTotal: true, gasoilConsomme: true },
-      _count: { id: true },
-    }),
-    // Paiements
     prisma.paiement.aggregate({
       where: { statut: 'PAYE', datePaiement: range },
       _sum: { montant: true },
     }),
-    // Stocks
     prisma.stockMatiere.findMany({ select: { designation: true, quantite: true, seuilAlerte: true, seuilCritique: true, prixUnitaire: true } }),
-    // Dernières commandes
-    prisma.commande.findMany({
-      where: { createdAt: range },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { reference: true, nomClient: true, volumeBeton: true, montantCommande: true, statut: true, beneficeNetReel: true },
-    }),
-    // Productions récentes
-    prisma.production.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      include: { commande: { select: { reference: true, nomClient: true } } },
-    }),
+    prisma.commande.count({ where: { statut: { notIn: ['LIVREE', 'ANNULEE', 'REJETEE'] } } }),
+    prisma.livraison.count({ where: { statut: 'EN_ROUTE' } }),
+    prisma.paiement.count({ where: { statut: 'EN_ATTENTE' } }),
   ]);
 
-  const caTotal = statsCommandes.reduce((a, s) => a + (s._sum.montantCommande || 0), 0);
-  const beneficeTotal = statsCommandes.reduce((a, s) => a + (s._sum.beneficeNetReel || 0), 0);
+  const caTotal = commandesPeriode.reduce((a, c) => a + (c.montantCommande || 0), 0);
+  const beneficeTotal = commandesPeriode.reduce((a, c) => a + (c.beneficeNetReel ?? c.margePrevisionnelle ?? 0), 0);
+  const volumeTotal = commandesPeriode.reduce((a, c) => a + (c.volumeBeton || 0), 0);
+  const tauxMarge = caTotal > 0 ? Math.round((beneficeTotal / caTotal) * 100 * 100) / 100 : 0;
+  const encaisse = statsPaiements._sum.montant || 0;
+
   const alertesStock = statsStocks.filter((s) => s.quantite <= s.seuilAlerte).length;
+  const critiquesStock = statsStocks.filter((s) => s.quantite <= s.seuilCritique).length;
   const valeurStock = statsStocks.reduce((a, s) => a + s.quantite * s.prixUnitaire, 0);
 
+  const topCommandes = [...commandesPeriode]
+    .sort((a, b) => (b.montantCommande || 0) - (a.montantCommande || 0))
+    .slice(0, 5);
+
   const parStatut = {};
-  statsCommandes.forEach((s) => { parStatut[s.statut] = s._count.id; });
+  commandesPeriode.forEach((c) => { parStatut[c.statut] = (parStatut[c.statut] || 0) + 1; });
 
   return {
-    commandes: {
-      total: Object.values(parStatut).reduce((a, v) => a + v, 0),
-      parStatut,
-      caTotal,
-      beneficeTotal,
-      tauxMarge: caTotal > 0 ? Math.round((beneficeTotal / caTotal) * 100 * 100) / 100 : 0,
+    // ── Format attendu par DashboardPDG.jsx ──────────────────────────────
+    mois: {
+      ca: caTotal,
+      benefice: beneficeTotal,
+      tauxMarge,
+      volumeLivre: volumeTotal,
+      commandes: commandesPeriode.length,
+      encaisse,
     },
-    production: {
-      total: statsProduction._count.id,
-      volumeTotal: statsProduction._sum.volumeProduit || 0,
-      coutTotal: statsProduction._sum.coutTotal || 0,
-      gasoilTotal: statsProduction._sum.gasoilConsomme || 0,
-    },
-    paiements: {
-      encaisse: statsPaiements._sum.montant || 0,
+    operations: {
+      commandesActives,
+      livraisonsEnCours,
+      paiementsEnAttente,
     },
     stocks: {
       alertes: alertesStock,
+      critiques: critiquesStock,
       valeurTotale: valeurStock,
     },
-    commandesRecentes,
-    productionsRecentes,
+
+    // ── Format attendu par Rapports.jsx (onglet "Vue PDG") ───────────────
+    chiffreAffaires: caTotal,
+    beneficeNet: beneficeTotal,
+    nombreCommandes: commandesPeriode.length,
+    volumeTotal,
+    montantEncaisse: encaisse,
+    topCommandes,
+
+    // ── Détail (legacy) ───────────────────────────────────────────────
+    commandes: { total: commandesPeriode.length, parStatut, caTotal, beneficeTotal, tauxMarge },
+    commandesRecentes: commandesPeriode.slice(0, 5),
   };
 };
 
 const rapportProduction = async (params) => {
-  const range = getDateRange(params.debut, params.fin);
+  const range = getDateRange(params);
 
-  const productions = await prisma.production.findMany({
+  const livraisons = await prisma.livraison.findMany({
     where: { createdAt: range },
     include: {
       commande: { select: { reference: true, nomClient: true, typeBeton: true } },
-      equipements: { include: { equipement: { select: { nom: true, type: true } } } },
     },
-    orderBy: { dateDebut: 'desc' },
+    orderBy: { createdAt: 'desc' },
   });
 
-  const volumeTotal = productions.reduce((a, p) => a + (p.volumeProduit || 0), 0);
-  const coutTotal = productions.reduce((a, p) => a + (p.coutTotal || 0), 0);
-  const gasoilTotal = productions.reduce((a, p) => a + (p.gasoilConsomme || 0), 0);
+  const volumeTotal = livraisons.reduce((a, l) => a + (l.volumeReel || l.volumePlanifie || 0), 0);
 
-  return { productions, volumeTotal, coutTotal, gasoilTotal, total: productions.length };
+  return {
+    productions: livraisons,
+    stats: {
+      total: livraisons.length,
+      volumeTotal,
+      gasoilTotal: 0,     // non suivi au niveau livraison (voir coûts gasoil par commande)
+      coutCarburant: 0,
+    },
+    total: livraisons.length,
+  };
 };
 
 const rapportFinancier = async (params) => {
-  const range = getDateRange(params.debut, params.fin);
+  const range = getDateRange(params);
 
   const commandes = await prisma.commande.findMany({
     where: { createdAt: range, montantCommande: { gt: 0 } },
     include: {
       paiements: { where: { statut: 'PAYE' }, select: { montant: true, modePaiement: true } },
-      productions: { select: { coutTotal: true, coutMatieres: true, coutCarburant: true, coutAmortissement: true, coutPersonnel: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
 
   const totaux = commandes.reduce((acc, c) => {
+    const depenses = c.depensesReelles ?? c.coutTotal ?? 0;
     acc.ca += c.montantCommande || 0;
     acc.paye += c.paiements.reduce((a, p) => a + p.montant, 0);
-    acc.benefice += c.beneficeNetReel || 0;
-    acc.depenses += c.depensesReelles || 0;
+    acc.benefice += c.beneficeNetReel ?? (c.montantCommande || 0) - depenses;
+    acc.depenses += depenses;
     return acc;
   }, { ca: 0, paye: 0, benefice: 0, depenses: 0 });
 
@@ -142,6 +153,8 @@ const rapportStocks = async () => {
     valeurStock: s.quantite * s.prixUnitaire,
     statut: s.quantite <= s.seuilCritique ? 'CRITIQUE' : s.quantite <= s.seuilAlerte ? 'FAIBLE' : 'OK',
     mouvementsMois: s.mouvements.length,
+    consommePeriode: s.mouvements.filter((m) => m.type.startsWith('SORTIE')).reduce((a, m) => a + m.quantite, 0),
+    achetePeriode: s.mouvements.filter((m) => m.type.startsWith('ENTREE')).reduce((a, m) => a + m.quantite, 0),
     entreesMois: s.mouvements.filter((m) => m.type.startsWith('ENTREE')).reduce((a, m) => a + m.quantite, 0),
     sortiesMois: s.mouvements.filter((m) => m.type.startsWith('SORTIE')).reduce((a, m) => a + m.quantite, 0),
   }));
@@ -151,7 +164,7 @@ const rapportEquipements = async () => {
   const equipements = await prisma.equipement.findMany({
     include: {
       maintenances: { orderBy: { dateDebut: 'desc' }, take: 5 },
-      _count: { select: { maintenances: true, productions: true } },
+      _count: { select: { maintenances: true, livraisons: true } },
     },
   });
 
@@ -170,29 +183,59 @@ const rapportEquipements = async () => {
 };
 
 const rapportBenefices = async (params) => {
-  const range = getDateRange(params.debut, params.fin);
+  const range = getDateRange(params);
 
   const commandes = await prisma.commande.findMany({
-    where: { createdAt: range, beneficeNetReel: { not: null } },
+    where: { createdAt: range, montantCommande: { gt: 0 } },
     select: {
-      reference: true, nomClient: true, volumeBeton: true, typeBeton: true,
-      montantCommande: true, depensesReelles: true, beneficeNetReel: true,
-      tauxMargeReel: true, createdAt: true,
+      id: true, reference: true, nomClient: true, volumeBeton: true, typeBeton: true,
+      montantCommande: true, coutMateriaux: true, coutTotal: true, margePrevisionnelle: true,
+      depensesReelles: true, beneficeNetReel: true, tauxMargeReel: true, createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  const totalCA = commandes.reduce((a, c) => a + (c.montantCommande || 0), 0);
-  const totalDepenses = commandes.reduce((a, c) => a + (c.depensesReelles || 0), 0);
-  const totalBenefice = commandes.reduce((a, c) => a + (c.beneficeNetReel || 0), 0);
+  const enrichies = commandes.map((c) => {
+    const depenses = c.depensesReelles ?? c.coutTotal ?? 0;
+    const benefice = c.beneficeNetReel ?? (c.montantCommande || 0) - depenses;
+    const tauxMarge = c.tauxMargeReel ?? (c.montantCommande > 0 ? Math.round((benefice / c.montantCommande) * 100 * 100) / 100 : 0);
+    return {
+      id: c.id,
+      reference: c.reference,
+      nomClient: c.nomClient,
+      typeBeton: c.typeBeton,
+      volumeBeton: c.volumeBeton,
+      volumeCommande: c.volumeBeton,
+      montantCommande: c.montantCommande,
+      coutMatieresPrevisionnel: c.coutMateriaux || 0,
+      coutTotalPrevisionnel: c.coutTotal || 0,
+      margePrevisionnelle: c.margePrevisionnelle || 0,
+      depensesReelles: depenses,
+      beneficeNetReel: benefice,
+      beneficeNet: benefice,
+      tauxMargeReel: tauxMarge,
+      createdAt: c.createdAt,
+    };
+  });
+
+  const totalCA = enrichies.reduce((a, c) => a + (c.montantCommande || 0), 0);
+  const totalCoutMatieres = enrichies.reduce((a, c) => a + (c.coutMatieresPrevisionnel || 0), 0);
+  const totalDepenses = enrichies.reduce((a, c) => a + (c.depensesReelles || 0), 0);
+  const totalBenefice = enrichies.reduce((a, c) => a + (c.beneficeNetReel || 0), 0);
+  const tauxMargeGlobal = totalCA > 0 ? Math.round((totalBenefice / totalCA) * 100 * 100) / 100 : 0;
 
   return {
-    commandes,
+    commandes: enrichies,
     totaux: {
+      nbCommandes: enrichies.length,
       ca: totalCA,
+      caTotal: totalCA,
+      coutMatieres: totalCoutMatieres,
+      coutTotal: totalDepenses,
       depenses: totalDepenses,
       benefice: totalBenefice,
-      tauxMarge: totalCA > 0 ? Math.round((totalBenefice / totalCA) * 100 * 100) / 100 : 0,
+      beneficeNet: totalBenefice,
+      tauxMarge: tauxMargeGlobal,
     },
   };
 };
@@ -202,7 +245,7 @@ const beneficeParCommande = async (commandeId) => {
     where: { id: commandeId },
     include: {
       formulation: true,
-      productions: { include: { mouvementsStock: { include: { stock: true } }, equipements: true } },
+      livraisons: true,
       paiements: { where: { statut: 'PAYE' } },
     },
   });
@@ -235,7 +278,7 @@ const beneficeParCommande = async (commandeId) => {
       restant: (commande.montantCommande || 0) - totalPaye,
       detail: commande.paiements,
     },
-    productions: commande.productions,
+    livraisons: commande.livraisons,
   };
 };
 
