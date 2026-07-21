@@ -86,22 +86,24 @@ const Commandes = () => {
     } catch { toast.error('Erreur génération proforma'); }
   };
 
+  // Statuts en attente de validation — EN_ATTENTE_CHEF_COMPTABLE conservé pour les commandes
+  // encore bloquées à cette étape avant le changement de circuit (n'est plus jamais atteint sinon).
+  const PENDING_STATUTS = ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE'];
+
   const canValidate = (cmd) => {
+    if (!hasPermission('commande:validate')) return false;
+    // PDG et Chef Comptable peuvent valider n'importe quelle étape en attente
+    if (['PDG', 'CHEF_COMPTABLE'].includes(user?.role)) return PENDING_STATUTS.includes(cmd.statut);
     const mapRoleStatut = {
       SECRETAIRE: 'EN_ATTENTE_SECRETAIRE',
       CHEF_DE_SITE: 'EN_ATTENTE_CHEF_SITE',
       ASSISTANT_COMPTABLE: 'EN_ATTENTE_ASSISTANT_COMPTABLE',
-      CHEF_COMPTABLE: 'EN_ATTENTE_CHEF_COMPTABLE',
-      PDG: 'EN_ATTENTE_PDG',
     };
-    return hasPermission('commande:validate') && cmd.statut === mapRoleStatut[user?.role];
+    return cmd.statut === mapRoleStatut[user?.role];
   };
 
   const canReject = (cmd) => {
-    return hasPermission('commande:reject') && [
-      'EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE',
-      'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE', 'EN_ATTENTE_PDG',
-    ].includes(cmd.statut);
+    return hasPermission('commande:reject') && PENDING_STATUTS.includes(cmd.statut);
   };
 
   if (isLoading) return <PageLoader />;

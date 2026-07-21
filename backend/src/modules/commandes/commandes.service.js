@@ -6,12 +6,15 @@ const prisma = require('../../config/prisma');
 const parametresService = require('../parametres/parametres.service');
 const { notifierCommande } = require('../../../whatsapp');
 
-// Ordre du workflow de validation (5 étapes)
-// Secrétaire → Chef de site → Assistant Comptable → Chef Comptable → VALIDÉE (→ PDG notifié)
+// Ordre du workflow de validation (3 étapes)
+// Secrétaire → Chef de site → Assistant Comptable → VALIDÉE
+// Le Chef Comptable a les mêmes permissions que le PDG (peut valider/rejeter n'importe quelle étape)
+// mais n'est plus une étape obligatoire du circuit.
 const WORKFLOW = {
   EN_ATTENTE_SECRETAIRE:           { next: 'EN_ATTENTE_CHEF_SITE',              role: 'SECRETAIRE',          etape: 1 },
   EN_ATTENTE_CHEF_SITE:            { next: 'EN_ATTENTE_ASSISTANT_COMPTABLE',    role: 'CHEF_DE_SITE',        etape: 2 },
-  EN_ATTENTE_ASSISTANT_COMPTABLE:  { next: 'EN_ATTENTE_CHEF_COMPTABLE',         role: 'ASSISTANT_COMPTABLE', etape: 3 },
+  EN_ATTENTE_ASSISTANT_COMPTABLE:  { next: 'VALIDEE',                           role: 'ASSISTANT_COMPTABLE', etape: 3 },
+  // Conservé pour les commandes déjà bloquées à cette étape avant le changement de circuit — plus jamais atteinte par de nouvelles commandes.
   EN_ATTENTE_CHEF_COMPTABLE:       { next: 'VALIDEE',                           role: 'CHEF_COMPTABLE',      etape: 4 },
 };
 
@@ -292,8 +295,16 @@ const validerCommande = async (commandeId, valideurId, commentaire) => {
   if (!etapeActuelle) throw Object.assign(new Error('Cette commande ne peut pas être validée'), { statusCode: 400 });
 
   const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
-  if (valideur.role !== etapeActuelle.role && valideur.role !== 'PDG') {
+  if (valideur.role !== etapeActuelle.role && !['PDG', 'CHEF_COMPTABLE'].includes(valideur.role)) {
     throw Object.assign(new Error(`Seul un ${etapeActuelle.role} peut valider à cette étape`), { statusCode: 403 });
+  }
+
+  // L'Assistant Comptable doit avoir saisi au moins un paiement avant de pouvoir valider (dernière étape du circuit)
+  if (etapeActuelle.role === 'ASSISTANT_COMPTABLE') {
+    const nbPaiements = await prisma.paiement.count({ where: { commandeId } });
+    if (nbPaiements === 0) {
+      throw Object.assign(new Error('Il faut enregistrer un paiement avant de valider cette commande'), { statusCode: 400 });
+    }
   }
 
   const [, updatedCommande] = await prisma.$transaction([
@@ -317,13 +328,13 @@ const validerCommande = async (commandeId, valideurId, commentaire) => {
     data: { userId: valideurId, type: 'VALIDATION_COMMANDE', action: `Commande validée (étape ${etapeActuelle.etape}) : ${commande.reference}`, details: { commandeId } },
   });
 
-  // Quand le Chef Comptable valide → commande VALIDÉE → la production peut démarrer
+  // Quand la dernière étape (Assistant Comptable) valide → commande VALIDÉE → la production peut démarrer
   if (etapeActuelle.next === 'VALIDEE') {
-    await notifierUser(commande.createdById, commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le Chef Comptable — prête pour production !`);
+    await notifierUser(commande.createdById, commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée — prête pour production !`);
     await notifierRole('OPERATEUR', commande, 'COMMANDE_VALIDEE', `Nouvelle commande validée : ${commande.reference} — ${commande.volumeBeton} m³ de ${commande.typeBeton}`);
     await notifierRole('CHEF_DE_SITE', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée — prête pour production`);
     // PDG est notifié mais sa validation n'est pas requise
-    await notifierRole('PDG', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée par le Chef Comptable et prête pour production (${commande.volumeBeton} m³)`);
+    await notifierRole('PDG', commande, 'COMMANDE_VALIDEE', `Commande ${commande.reference} validée et prête pour production (${commande.volumeBeton} m³)`);
   } else {
     const nextRole = WORKFLOW[etapeActuelle.next]?.role;
     if (nextRole) {

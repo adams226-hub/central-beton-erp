@@ -189,18 +189,21 @@ const CommandeDetail = () => {
   if (isLoading) return <PageLoader />;
   if (!commande) return <p className="text-center text-gray-400 py-20">Commande introuvable</p>;
 
+  // Statuts en attente de validation — EN_ATTENTE_CHEF_COMPTABLE conservé pour les commandes
+  // encore bloquées à cette étape avant le changement de circuit (n'est plus jamais atteint sinon).
+  const PENDING_STATUTS = ['EN_ATTENTE_SECRETAIRE', 'EN_ATTENTE_CHEF_SITE', 'EN_ATTENTE_ASSISTANT_COMPTABLE', 'EN_ATTENTE_CHEF_COMPTABLE'];
   const mapRoleStatut = {
     SECRETAIRE: 'EN_ATTENTE_SECRETAIRE',
     CHEF_DE_SITE: 'EN_ATTENTE_CHEF_SITE',
     ASSISTANT_COMPTABLE: 'EN_ATTENTE_ASSISTANT_COMPTABLE',
-    CHEF_COMPTABLE: 'EN_ATTENTE_CHEF_COMPTABLE',
-    PDG: 'EN_ATTENTE_PDG',
   };
-  const canValidate = hasPermission('commande:validate') && commande.statut === mapRoleStatut[user?.role];
-  const canReject = hasPermission('commande:reject') && [
-    'EN_ATTENTE_SECRETAIRE','EN_ATTENTE_CHEF_SITE',
-    'EN_ATTENTE_ASSISTANT_COMPTABLE','EN_ATTENTE_CHEF_COMPTABLE','EN_ATTENTE_PDG',
-  ].includes(commande.statut);
+  // PDG et Chef Comptable peuvent valider n'importe quelle étape en attente
+  const canValidate = hasPermission('commande:validate') && (
+    ['PDG', 'CHEF_COMPTABLE'].includes(user?.role)
+      ? PENDING_STATUTS.includes(commande.statut)
+      : commande.statut === mapRoleStatut[user?.role]
+  );
+  const canReject = hasPermission('commande:reject') && PENDING_STATUTS.includes(commande.statut);
   const canEdit = hasPermission('commande:update') && ['BROUILLON','EN_ATTENTE_SECRETAIRE','REJETEE'].includes(commande.statut);
   const canDelete = hasPermission('commande:delete') && ['BROUILLON','ANNULEE','REJETEE'].includes(commande.statut);
 
