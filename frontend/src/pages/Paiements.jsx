@@ -28,7 +28,7 @@ const PaiementForm = ({ onSuccess, onClose }) => {
     select: (r) => {
       const list = r.data?.data?.commandes ?? [];
       return list.filter((c) =>
-        ['VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut) &&
+        ['EN_ATTENTE_ASSISTANT_COMPTABLE', 'VALIDEE', 'EN_PRODUCTION', 'LIVREE'].includes(c.statut) &&
         (c.montantRestant === null || c.montantRestant === undefined || c.montantRestant > 0)
       );
     },
