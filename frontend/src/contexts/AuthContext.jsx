@@ -73,11 +73,17 @@ export const AuthProvider = ({ children }) => {
         'rapport:read', 'rapport:export',
         'dashboard:read',
       ],
+      // Mêmes permissions que le PDG
       SECRETAIRE: [
-        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:delete',
-        'formulation:read',
-        'stock:read', 'production:read', 'production:write', 'livraison:read', 'livraison:write',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+        'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
+        'user:read', 'user:create', 'user:update',
+        'stock:read', 'stock:write',
+        'production:read', 'production:write',
+        'equipement:read', 'equipement:write',
+        'livraison:read', 'livraison:write',
         'paiement:read', 'paiement:write',
+        'rapport:read', 'rapport:export',
         'dashboard:read',
       ],
       CHEF_DE_SITE: [
