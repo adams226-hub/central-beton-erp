@@ -17,5 +17,6 @@ router.get('/benefices/commande/:id', requirePermission('rapport:read'), ctrl.be
 
 // Export : PDG, CHEF_COMPTABLE, COMPTABLE uniquement
 router.get('/benefices/export',    requirePermission('rapport:export'), ctrl.exportBenefices);
+router.get('/production/export',   requirePermission('rapport:export'), ctrl.exportProduction);
 
 module.exports = router;

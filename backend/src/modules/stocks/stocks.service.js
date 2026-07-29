@@ -177,7 +177,7 @@ const deduireStockProduction = async (commandeId, formulation, volume, userId) =
 
   // 4. Alertes stock APRÈS la transaction (sans bloquer le démarrage)
   const usersAlerte = await prisma.user.findMany({
-    where: { role: { in: ['PDG', 'CHEF_DE_SITE', 'CHEF_COMPTABLE'] }, isActive: true },
+    where: { role: { in: ['PDG', 'CHEF_DE_SITE', 'CHEF_COMPTABLE', 'SECRETAIRE'] }, isActive: true },
     select: { id: true, role: true },
   });
 

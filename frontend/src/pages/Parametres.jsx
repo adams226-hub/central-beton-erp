@@ -48,7 +48,7 @@ const FieldRow = ({ label, unit, name, register, readOnly, step = '1', min = '0'
 const Parametres = () => {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const canEdit = user?.role === 'PDG' || user?.role === 'CHEF_COMPTABLE';
+  const canEdit = ['PDG', 'CHEF_COMPTABLE', 'SECRETAIRE'].includes(user?.role);
 
   const { data, isLoading } = useQuery({
     queryKey: ['parametres-erp'],

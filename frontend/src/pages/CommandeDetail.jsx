@@ -191,7 +191,7 @@ const CommandeDetail = () => {
   };
   // PDG et Chef Comptable peuvent valider n'importe quelle étape en attente
   const canValidate = hasPermission('commande:validate') && (
-    ['PDG', 'CHEF_COMPTABLE'].includes(user?.role)
+    ['PDG', 'CHEF_COMPTABLE', 'SECRETAIRE'].includes(user?.role)
       ? PENDING_STATUTS.includes(commande.statut)
       : commande.statut === mapRoleStatut[user?.role]
   );

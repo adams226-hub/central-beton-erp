@@ -229,10 +229,37 @@ const RapportProduction = ({ dateDebut, dateFin }) => {
     select: (r) => r.data.data,
   });
 
+  const handleExport = async (format) => {
+    const toastId = toast.loading(`Génération ${format === 'excel' ? 'Excel' : 'PDF'} en cours...`);
+    try {
+      const mimeType = format === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf';
+      const ext = format === 'excel' ? 'xlsx' : 'pdf';
+      const res = await rapportsAPI.exportProduction({ dateDebut, dateFin, format });
+      const url = URL.createObjectURL(new Blob([res.data], { type: mimeType }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AMP-BETON_production_${dateDebut || 'debut'}_${dateFin || 'fin'}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`${format === 'excel' ? 'Excel' : 'PDF'} téléchargé avec succès`, { id: toastId });
+    } catch (err) {
+      const msg = err.response?.data?.message || `Erreur lors de l'export ${format}`;
+      toast.error(msg, { id: toastId });
+    }
+  };
+
   if (isLoading) return <div className="py-6 text-center text-gray-400 text-sm">Chargement...</div>;
 
   return (
     <div className="space-y-3">
+      <div className="flex gap-2">
+        <ExportButton label="Export PDF" onClick={() => handleExport('pdf')} variant="pdf" />
+        <ExportButton label="Export Excel" onClick={() => handleExport('excel')} variant="excel" />
+      </div>
       {data?.stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
           {[

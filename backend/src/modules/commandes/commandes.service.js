@@ -295,7 +295,7 @@ const validerCommande = async (commandeId, valideurId, commentaire) => {
   if (!etapeActuelle) throw Object.assign(new Error('Cette commande ne peut pas être validée'), { statusCode: 400 });
 
   const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
-  if (valideur.role !== etapeActuelle.role && !['PDG', 'CHEF_COMPTABLE'].includes(valideur.role)) {
+  if (valideur.role !== etapeActuelle.role && !['PDG', 'CHEF_COMPTABLE', 'SECRETAIRE'].includes(valideur.role)) {
     throw Object.assign(new Error(`Seul un ${etapeActuelle.role} peut valider à cette étape`), { statusCode: 403 });
   }
 
@@ -355,7 +355,7 @@ const rejeterCommande = async (commandeId, valideurId, motif) => {
   if (!etape) throw Object.assign(new Error('Cette commande ne peut pas être rejetée'), { statusCode: 400 });
 
   const valideur = await prisma.user.findUnique({ where: { id: valideurId } });
-  const rolesAutorisesRejet = [etape.role, 'PDG', 'CHEF_COMPTABLE'];
+  const rolesAutorisesRejet = [etape.role, 'PDG', 'CHEF_COMPTABLE', 'SECRETAIRE'];
   if (!rolesAutorisesRejet.includes(valideur.role)) {
     throw Object.assign(new Error(`Seul un ${etape.role} peut rejeter à cette étape`), { statusCode: 403 });
   }

@@ -39,7 +39,7 @@ router.put('/:id', requirePermission('user:update'), asyncHandler(async (req, re
   res.json({ success: true, message: 'Utilisateur mis à jour', data: user });
 }));
 
-router.get('/activites', requireRoles('PDG'), asyncHandler(async (req, res) => {
+router.get('/activites', requireRoles('PDG', 'SECRETAIRE'), asyncHandler(async (req, res) => {
   const activites = await prisma.activite.findMany({
     include: { user: { select: { nom: true, prenom: true, role: true } } },
     orderBy: { createdAt: 'desc' },

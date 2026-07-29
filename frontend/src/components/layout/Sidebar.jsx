@@ -41,7 +41,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/notifications', label: 'Notifications', icon: Bell, permission: null, badge: true },
       { path: '/utilisateurs', label: 'Utilisateurs', icon: Users, permission: 'user:read' },
-      { path: '/parametres', label: 'Paramètres', icon: Settings, permission: null, roles: ['PDG', 'CHEF_COMPTABLE'] },
+      { path: '/parametres', label: 'Paramètres', icon: Settings, permission: null, roles: ['PDG', 'CHEF_COMPTABLE', 'SECRETAIRE'] },
     ],
   },
 ];

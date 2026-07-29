@@ -512,6 +512,128 @@ const generateRapportBenefices = (data, dateDebut, dateFin) => {
   return doc;
 };
 
+/**
+ * Génère un PDF professionnel du rapport Production/Livraison
+ */
+const generateRapportProduction = (data, dateDebut, dateFin) => {
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 40, bottom: 0, left: 40, right: 40 }, bufferPages: true });
+  const stats = data.stats || {};
+  const productions = data.productions || [];
+
+  // ── EN-TÊTE ─────────────────────────────────────────────────────────────
+  doc.rect(0, 0, 595, 40).fillColor(BLEU_FONCE).fill();
+  doc.rect(37, 4, 86, 32).fillColor(BLANC).fill();
+  drawLogo(doc, 38, 5, 84, 30);
+  doc.fontSize(13).font('Helvetica-Bold').fillColor(BLANC)
+    .text('RAPPORT PRODUCTION ET LIVRAISON', 200, 12, { align: 'right', width: 355 });
+
+  doc.fontSize(8).font('Helvetica').fillColor(GRIS)
+    .text(`Centrale à Béton — Ouaga 2000, Ouagadougou`, 40, 48)
+    .text(`Période : ${dateDebut || 'début'} → ${dateFin || "aujourd'hui"}`, 40, 58)
+    .text(`Généré le : ${new Date().toLocaleString('fr-FR')}`, 350, 48, { align: 'right', width: 205 })
+    .text(`${productions.length} livraison(s) analysée(s)`, 350, 58, { align: 'right', width: 205 });
+
+  doc.moveTo(40, 73).lineTo(555, 73).lineWidth(1).strokeColor(BLEU_CLAIR).stroke();
+
+  // ── KPIs RÉSUMÉ ─────────────────────────────────────────────────────────
+  let y = 82;
+  const kpiW = 163;
+  const kpis = [
+    { label: 'Livraisons', val: String(stats.total || 0), color: BLEU },
+    { label: 'Volume total (m³)', val: fmt(stats.volumeTotal), color: VERT },
+    { label: 'Gasoil consommé (L)', val: fmt(stats.gasoilTotal), color: ORANGE },
+  ];
+
+  kpis.forEach((k, i) => {
+    const x = 40 + i * (kpiW + 8);
+    doc.rect(x, y, kpiW, 38).fillColor('#f8fafc').fill();
+    doc.rect(x, y, 3, 38).fillColor(k.color).fill();
+    doc.fontSize(7).font('Helvetica').fillColor(GRIS)
+      .text(k.label, x + 8, y + 5, { width: kpiW - 12, lineBreak: false });
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(k.color)
+      .text(k.val, x + 8, y + 18, { width: kpiW - 12, lineBreak: false });
+  });
+  y += 48;
+
+  doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+  y += 8;
+
+  // ── TABLEAU DES LIVRAISONS ────────────────────────────────────────────────
+  const COL = [80, 80, 95, 60, 60, 70, 70];
+  const HEADERS = ['Référence', 'Commande', 'Client', 'Vol. prévu', 'Vol. réel', 'Statut', 'Date'];
+
+  doc.rect(40, y, 515, 16).fillColor(BLEU_FONCE).fill();
+  let x = 40;
+  HEADERS.forEach((h, i) => {
+    const align = i >= 3 && i <= 4 ? 'right' : 'left';
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(BLANC)
+      .text(h, x + 4, y + 4, { width: COL[i] - 8, align, lineBreak: false });
+    x += COL[i];
+  });
+  y += 16;
+
+  const ROW_H = 15;
+  productions.forEach((p, idx) => {
+    if (y + ROW_H > 780) {
+      doc.addPage();
+      y = 40;
+      doc.rect(40, y, 515, 16).fillColor(BLEU_FONCE).fill();
+      let xh = 40;
+      HEADERS.forEach((h, i) => {
+        doc.fontSize(7.5).font('Helvetica-Bold').fillColor(BLANC)
+          .text(h, xh + 4, y + 4, { width: COL[i] - 8, align: i >= 3 && i <= 4 ? 'right' : 'left', lineBreak: false });
+        xh += COL[i];
+      });
+      y += 16;
+    }
+
+    const bg = idx % 2 === 0 ? BLANC : '#fffbeb';
+    doc.rect(40, y, 515, ROW_H).fillColor(bg).fill();
+
+    const vals = [
+      p.reference || '—',
+      p.commande?.reference || '—',
+      p.commande?.nomClient || '—',
+      `${fmt(p.volumePlanifie)} m³`,
+      p.volumeReel != null ? `${fmt(p.volumeReel)} m³` : '—',
+      p.statut || '—',
+      p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '—',
+    ];
+
+    let xc = 40;
+    vals.forEach((v, i) => {
+      const isNum = i >= 3 && i <= 4;
+      doc.fontSize(7.5).font('Helvetica').fillColor(NOIR)
+        .text(v, xc + 4, y + 4, { width: COL[i] - 8, align: isNum ? 'right' : 'left', lineBreak: false });
+      xc += COL[i];
+    });
+
+    doc.moveTo(40, y + ROW_H).lineTo(555, y + ROW_H)
+      .lineWidth(0.2).strokeColor(GRIS_MOY).stroke();
+    y += ROW_H;
+  });
+
+  // Ligne totaux
+  y += 2;
+  doc.rect(40, y, 515, 18).fillColor(BLEU_CLAIR).fill();
+  doc.rect(40, y, 515, 18).lineWidth(0.8).strokeColor(BLEU).stroke();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(BLEU_FONCE)
+    .text('TOTAL', 44, y + 5, { width: 255, lineBreak: false })
+    .text(`${fmt(stats.volumeTotal)} m³`, 40 + 80 + 80 + 95, y + 5, { width: 60, align: 'right', lineBreak: false });
+  y += 22;
+
+  // ── PIED DE PAGE ─────────────────────────────────────────────────────────
+  const pageH = doc.page.height;
+  doc.rect(0, pageH - 25, 595, 25).fillColor(BLEU_FONCE).fill();
+  doc.fontSize(7).font('Helvetica').fillColor('#fed7aa')
+    .text(
+      `AMP BÉTON — ERP v3.0  |  Rapport confidentiel  |  Généré le ${new Date().toLocaleString('fr-FR')}`,
+      40, pageH - 15, { align: 'center', width: 515 }
+    );
+
+  return doc;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Montant en lettres (français)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -973,4 +1095,4 @@ const generateEtatPaiement = (commande, result) => {
   return doc;
 };
 
-module.exports = { generateDevis, generateRapportBenefices, generateFactureProforma, generateEtatLivraison, generateEtatPaiement };
+module.exports = { generateDevis, generateRapportBenefices, generateRapportProduction, generateFactureProforma, generateEtatLivraison, generateEtatPaiement };
