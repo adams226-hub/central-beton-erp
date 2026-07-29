@@ -131,11 +131,11 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
 
-  const SUPPRIMABLES = ['BROUILLON', 'ANNULEE', 'REJETEE'];
+  const SUPPRIMABLES = ['BROUILLON', 'ANNULEE', 'REJETEE', 'EN_ATTENTE_SECRETAIRE'];
   if (!SUPPRIMABLES.includes(commande.statut)) {
     return res.status(400).json({
       success: false,
-      message: `Impossible de supprimer une commande en statut "${commande.statut}". Seules les commandes en brouillon, annulées ou rejetées peuvent être supprimées.`,
+      message: `Impossible de supprimer une commande en statut "${commande.statut}". Seules les commandes en brouillon, en attente de validation client, annulées ou rejetées peuvent être supprimées.`,
     });
   }
 

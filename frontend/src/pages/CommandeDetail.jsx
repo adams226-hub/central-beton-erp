@@ -197,7 +197,7 @@ const CommandeDetail = () => {
   );
   const canReject = hasPermission('commande:reject') && PENDING_STATUTS.includes(commande.statut);
   const canEdit = hasPermission('commande:update') && ['BROUILLON','EN_ATTENTE_SECRETAIRE','REJETEE'].includes(commande.statut);
-  const canDelete = hasPermission('commande:delete') && ['BROUILLON','ANNULEE','REJETEE'].includes(commande.statut);
+  const canDelete = hasPermission('commande:delete') && ['BROUILLON','ANNULEE','REJETEE','EN_ATTENTE_SECRETAIRE'].includes(commande.statut);
 
   // Calculs paiements
   const totalCommande = commande.montantCommande || 0;
