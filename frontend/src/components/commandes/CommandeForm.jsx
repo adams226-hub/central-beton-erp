@@ -354,7 +354,7 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date de livraison</label>
-            <input {...register('dateLivraison')} type="date" min={new Date().toISOString().split('T')[0]} className="amp-input" />
+            <input {...register('dateLivraison')} type="date" className="amp-input" />
             {errors.dateLivraison && <p className="text-red-500 text-xs mt-1">{errors.dateLivraison.message}</p>}
           </div>
           {/* Distance + Zone */}

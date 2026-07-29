@@ -208,7 +208,7 @@ const Commandes = () => {
                           onClick={(e) => handleValider(cmd.id, e)}
                           disabled={actionLoading === cmd.id + '_val'}
                           className="p-1.5 hover:bg-green-50 rounded-lg text-green-600 transition-colors disabled:opacity-50"
-                          title="Valider"
+                          title={cmd.statut === 'EN_ATTENTE_SECRETAIRE' ? 'Client a accepté' : 'Valider'}
                         >
                           <CheckCircle size={14} />
                         </button>
@@ -217,7 +217,7 @@ const Commandes = () => {
                         <button
                           onClick={(e) => { e.stopPropagation(); setRejectId(cmd.id); }}
                           className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
-                          title="Rejeter"
+                          title={cmd.statut === 'EN_ATTENTE_SECRETAIRE' ? 'Client a refusé' : 'Rejeter'}
                         >
                           <XCircle size={14} />
                         </button>

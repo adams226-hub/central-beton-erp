@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, CheckCircle, XCircle, Edit, User,
   MapPin, Phone, Calendar, Layers, Calculator, Clock, FileText,
-  Truck, CreditCard, Factory, Activity, TrendingUp, Package, Trash2,
+  Truck, CreditCard, Activity, TrendingUp, Package, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { commandesAPI } from '../api';
@@ -17,14 +17,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 // ── Config statuts ────────────────────────────────────────────────────────────
-const PROD_STATUT = {
-  EN_ATTENTE:  { label: 'En attente',  color: 'bg-gray-100 text-gray-600' },
-  EN_COURS:    { label: 'En cours',    color: 'bg-blue-100 text-blue-700' },
-  CHARGEMENT:  { label: 'Chargement', color: 'bg-amber-100 text-amber-700' },
-  LIVRAISON:   { label: 'Livraison',  color: 'bg-purple-100 text-purple-700' },
-  TERMINE:     { label: 'Terminée',   color: 'bg-green-100 text-green-700' },
-  ANNULE:      { label: 'Annulée',    color: 'bg-red-100 text-red-700' },
-};
 const LIV_STATUT = {
   PLANIFIEE: { label: 'Planifiée', color: 'bg-gray-100 text-gray-600' },
   EN_ROUTE:  { label: 'En route',  color: 'bg-blue-100 text-blue-700' },
@@ -272,12 +264,12 @@ const CommandeDetail = () => {
           </button>
           {canValidate && (
             <button onClick={handleValider} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <CheckCircle size={14} /> Valider
+              <CheckCircle size={14} /> {commande.statut === 'EN_ATTENTE_SECRETAIRE' ? 'Client a accepté' : 'Valider'}
             </button>
           )}
           {canReject && (
             <button onClick={() => setShowReject(true)} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <XCircle size={14} /> Rejeter
+              <XCircle size={14} /> {commande.statut === 'EN_ATTENTE_SECRETAIRE' ? 'Client a refusé' : 'Rejeter'}
             </button>
           )}
           {canDelete && (
@@ -494,54 +486,9 @@ const CommandeDetail = () => {
         </div>
       )}
 
-      {/* ── Suivi Production + Paiements ── */}
-      {(commande.productions?.length > 0 || commande.paiements?.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-          {/* Production */}
-          {commande.productions?.length > 0 && (
-            <div className="amp-card p-5">
-              <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
-                <Factory size={14} /> Production
-              </h3>
-              <div className="space-y-3">
-                {commande.productions.map((prod) => {
-                  const cfg = PROD_STATUT[prod.statut] || PROD_STATUT.EN_ATTENTE;
-                  const pct = prod.volumePlanifie > 0
-                    ? Math.min(100, ((prod.volumeProduit || 0) / prod.volumePlanifie) * 100)
-                    : 0;
-                  return (
-                    <div key={prod.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-mono text-sm font-semibold text-gray-700">{prod.reference}</span>
-                        <Badge cfg={cfg} />
-                      </div>
-                      <div className="space-y-1.5 text-xs text-gray-500">
-                        {prod.operateur && <p>Opérateur : <span className="font-medium text-gray-700">{prod.operateur.prenom} {prod.operateur.nom}</span></p>}
-                        {prod.dateDebut && <p>Début : <span className="font-medium text-gray-700">{formatDateTime(prod.dateDebut)}</span></p>}
-                        {prod.dateFin  && <p>Fin : <span className="font-medium text-gray-700">{formatDateTime(prod.dateFin)}</span></p>}
-                        {prod.dureeHeures != null && prod.dureeHeures !== 0 && <p>Durée : <span className="font-medium text-gray-700">{parseFloat(prod.dureeHeures).toFixed(1)} h</span></p>}
-                      </div>
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>Volume produit</span>
-                          <span className="font-semibold text-gray-700">{prod.volumeProduit || 0} / {prod.volumePlanifie} m³</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div className={cn('h-1.5 rounded-full', prod.statut === 'TERMINE' ? 'bg-green-500' : 'bg-blue-500')} style={{ width: `${pct}%` }} />
-                        </div>
-                        {prod.rendement != null && (
-                          <p className="text-xs text-gray-400 mt-0.5">Rendement : {prod.rendement.toFixed(0)}%</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Paiements */}
+      {/* ── Suivi Paiements ── */}
+      {commande.paiements?.length > 0 && (
+        <div className="grid grid-cols-1 gap-5">
           {commande.paiements?.length > 0 && (
             <div className="amp-card p-5">
               <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -622,8 +569,16 @@ const CommandeDetail = () => {
                         {liv.chauffeur && <p className="text-xs text-gray-400">{liv.chauffeur}</p>}
                       </td>
                       <td className="py-2.5 pr-4 text-right text-gray-700">{liv.volumePlanifie} m³</td>
-                      <td className="py-2.5 pr-4 text-right font-semibold text-gray-800">
+                      <td className={cn(
+                        'py-2.5 pr-4 text-right font-semibold',
+                        liv.volumeReel == null ? 'text-gray-800'
+                          : liv.volumeReel > liv.volumePlanifie ? 'text-blue-700'
+                          : liv.volumeReel < liv.volumePlanifie ? 'text-orange-600'
+                          : 'text-gray-800'
+                      )}>
                         {liv.volumeReel != null ? `${liv.volumeReel} m³` : '—'}
+                        {liv.volumeReel > liv.volumePlanifie && ' ↑'}
+                        {liv.volumeReel != null && liv.volumeReel < liv.volumePlanifie && ' ↓'}
                       </td>
                       <td className="py-2.5 pr-4 text-xs text-gray-500">
                         {liv.heureDepart ? formatDateTime(liv.heureDepart) : '—'}

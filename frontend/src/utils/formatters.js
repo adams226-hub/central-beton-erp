@@ -22,7 +22,7 @@ export const formatLitre = (l) => `${Number(l || 0).toLocaleString('fr-FR')} L`;
 
 export const STATUT_CONFIG = {
   BROUILLON: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' },
-  EN_ATTENTE_SECRETAIRE: { label: 'En attente (Secrétaire)', color: 'bg-yellow-100 text-yellow-800', dot: 'bg-yellow-500' },
+  EN_ATTENTE_SECRETAIRE: { label: 'Attente validation client', color: 'bg-yellow-100 text-yellow-800', dot: 'bg-yellow-500' },
   EN_ATTENTE_CHEF_SITE: { label: 'En attente (Chef de site)', color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
   EN_ATTENTE_ASSISTANT_COMPTABLE: { label: 'En attente (Asst. Comptable)', color: 'bg-cyan-100 text-cyan-800', dot: 'bg-cyan-500' },
   EN_ATTENTE_CHEF_COMPTABLE: { label: 'En attente (Chef Comptable)', color: 'bg-indigo-100 text-indigo-800', dot: 'bg-indigo-500' },
