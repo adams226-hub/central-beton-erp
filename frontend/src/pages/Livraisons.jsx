@@ -186,11 +186,9 @@ const LivraisonCard = ({ liv, onLivrer, onAnnuler, onExport, canEdit }) => {
           {liv.volumeReel != null && (
             <p className={cn(
               'text-xs font-bold',
-              liv.volumeReel > liv.volumePlanifie ? 'text-blue-700' : liv.volumeReel < liv.volumePlanifie ? 'text-orange-600' : 'text-gray-700'
+              liv.ecartCommande > 0 ? 'text-blue-700' : liv.ecartCommande < 0 ? 'text-orange-600' : 'text-gray-700'
             )}>
               Volume livré : {liv.volumeReel} m³
-              {liv.volumeReel > liv.volumePlanifie && ` (surplus +${(liv.volumeReel - liv.volumePlanifie).toFixed(1)} m³)`}
-              {liv.volumeReel < liv.volumePlanifie && ` (reliquat -${(liv.volumePlanifie - liv.volumeReel).toFixed(1)} m³)`}
             </p>
           )}
           {/* Bouton état de livraison */}

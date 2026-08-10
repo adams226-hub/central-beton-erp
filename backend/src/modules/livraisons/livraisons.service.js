@@ -25,7 +25,7 @@ const lister = async (filters = {}) => {
     prisma.livraison.findMany({
       where,
       include: {
-        commande: { select: { reference: true, nomClient: true, adresseChantier: true } },
+        commande: { select: { reference: true, nomClient: true, adresseChantier: true, volumeBeton: true } },
         toupie: { select: { nom: true, code: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -34,7 +34,38 @@ const lister = async (filters = {}) => {
     prisma.livraison.count({ where }),
   ]);
 
-  return { livraisons, total };
+  return { livraisons: await enrichirEcartCumule(livraisons), total };
+};
+
+// Calcule, pour chaque livraison, l'écart entre le volume total de la commande
+// et le cumul livré sur cette commande jusqu'à cette livraison (chronologiquement).
+// Une même commande peut avoir plusieurs livraisons : comparer chaque livraison
+// isolément à volumePlanifie (qui vaut souvent le volume total de la commande par
+// défaut) donne un reliquat faux dès la 2e livraison.
+const enrichirEcartCumule = async (livraisons) => {
+  const commandeIds = [...new Set(livraisons.map((l) => l.commandeId))];
+  if (commandeIds.length === 0) return livraisons;
+
+  const toutesLivraisons = await prisma.livraison.findMany({
+    where: { commandeId: { in: commandeIds } },
+    select: { id: true, commandeId: true, volumeReel: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const cumulCourant = {};
+  const cumulParLivraison = {};
+  for (const l of toutesLivraisons) {
+    if (l.volumeReel != null) {
+      cumulCourant[l.commandeId] = (cumulCourant[l.commandeId] || 0) + l.volumeReel;
+    }
+    cumulParLivraison[l.id] = cumulCourant[l.commandeId] ?? null;
+  }
+
+  return livraisons.map((l) => {
+    if (l.volumeReel == null || l.commande?.volumeBeton == null) return l;
+    const volumeCumule = cumulParLivraison[l.id];
+    return { ...l, volumeCumule, ecartCommande: volumeCumule != null ? volumeCumule - l.commande.volumeBeton : null };
+  });
 };
 
 const getPlanning = async () => {

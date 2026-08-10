@@ -218,6 +218,22 @@ const CommandeDetail = () => {
     ? Math.min(100, (volumeTotalLivre / commande.volumeBeton) * 100)
     : 0;
 
+  // Écart cumulé par livraison (une commande peut avoir plusieurs livraisons :
+  // comparer chaque livraison isolément à son volume prévu donne un résultat faux
+  // dès la 2e livraison — il faut comparer au cumul livré jusqu'à ce point).
+  const ecartParLivraison = {};
+  {
+    let cumul = 0;
+    [...(commande.livraisons || [])]
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .forEach((l) => {
+        if (l.volumeReel != null) {
+          cumul += l.volumeReel;
+          ecartParLivraison[l.id] = cumul - (commande.volumeBeton || 0);
+        }
+      });
+  }
+
   const progressStep = getProgressStep(commande.statut);
   const isAnnule = ['ANNULEE','REJETEE'].includes(commande.statut);
 
@@ -564,6 +580,7 @@ const CommandeDetail = () => {
               <tbody>
                 {commande.livraisons.map((liv) => {
                   const cfg = LIV_STATUT[liv.statut] || LIV_STATUT.PLANIFIEE;
+                  const ecart = ecartParLivraison[liv.id];
                   return (
                     <tr key={liv.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="py-2.5 pr-4 font-mono text-xs text-gray-600">{liv.reference}</td>
@@ -574,14 +591,11 @@ const CommandeDetail = () => {
                       <td className="py-2.5 pr-4 text-right text-gray-700">{liv.volumePlanifie} m³</td>
                       <td className={cn(
                         'py-2.5 pr-4 text-right font-semibold',
-                        liv.volumeReel == null ? 'text-gray-800'
-                          : liv.volumeReel > liv.volumePlanifie ? 'text-blue-700'
-                          : liv.volumeReel < liv.volumePlanifie ? 'text-orange-600'
-                          : 'text-gray-800'
+                        ecart == null ? 'text-gray-800' : ecart > 0 ? 'text-blue-700' : ecart < 0 ? 'text-orange-600' : 'text-gray-800'
                       )}>
                         {liv.volumeReel != null ? `${liv.volumeReel} m³` : '—'}
-                        {liv.volumeReel > liv.volumePlanifie && ' ↑'}
-                        {liv.volumeReel != null && liv.volumeReel < liv.volumePlanifie && ' ↓'}
+                        {ecart > 0 && ' ↑'}
+                        {ecart < 0 && ' ↓'}
                       </td>
                       <td className="py-2.5 pr-4 text-xs text-gray-500">
                         {liv.heureDepart ? formatDateTime(liv.heureDepart) : '—'}
