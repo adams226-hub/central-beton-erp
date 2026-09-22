@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Deploy Backend
         run: |
-          curl -sf -X GET \
+          curl -sf -X POST \
             --max-time 15 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             "http://191.215.40.162:8000/api/v1/deploy?uuid=xdhjngsphjmefhpcluf9ufqu&force=false"
@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Deploy Frontend
         run: |
-          curl -sf -X GET \
+          curl -sf -X POST \
             --max-time 15 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             "http://191.215.40.162:8000/api/v1/deploy?uuid=lw788hbjjoj6og94zrcswjcf&force=false"
