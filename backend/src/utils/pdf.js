@@ -2,11 +2,30 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const LOGO_PATH = path.join(__dirname, '../../assets/logo-amp.png');
+const CACHET_PATH = path.join(__dirname, '../../assets/cachet.png');
+const SIGNATURE_PATH = path.join(__dirname, '../../assets/signature.png');
 const hasLogo = fs.existsSync(LOGO_PATH);
+const hasCachet = fs.existsSync(CACHET_PATH);
+const hasSignature = fs.existsSync(SIGNATURE_PATH);
 
 function drawLogo(doc, x, y, w, h) {
   if (!hasLogo) return;
   try { doc.image(LOGO_PATH, x, y, { fit: [w, h] }); } catch (_) {}
+}
+
+// Dessine le cachet puis la signature qui traverse le haut du cachet, comme
+// un vrai tampon signé à la main. `w` est la largeur/hauteur de la zone cachet.
+function drawCachetSignature(doc, x, y, w) {
+  try {
+    if (hasCachet) {
+      doc.image(CACHET_PATH, x, y, { fit: [w, w], align: 'center', valign: 'center' });
+    }
+    if (hasSignature) {
+      const sigW = w * 0.95;
+      const sigH = w * 0.35;
+      doc.image(SIGNATURE_PATH, x + (w - sigW) / 2 - w * 0.42, y - sigH * 0.35, { fit: [sigW, sigH], align: 'center', valign: 'center' });
+    }
+  } catch (_) {}
 }
 
 const BLEU       = '#c2410c';
@@ -818,12 +837,17 @@ const generateFactureProforma = (commande, lignesCustom = null) => {
     .text('Délai de livraison 7 jours après le paiement', L + 8, y + 22)
     .text('PS: Toute somme versée est non remboursable', L + 8, y + 36, { oblique: true });
 
-  y += condH + 40;
+  y += condH + 14;
 
   // ── Signature COMPTABLE (sans nom) ───────────────────────────────────────
   doc.fontSize(9).font('Helvetica-Bold').fillColor(NOIR)
-    .text('COMPTABLE', L + 330, y + 5, { width: 165, align: 'center' });
-  doc.moveTo(L + 345, y + 45).lineTo(L + W, y + 45).lineWidth(0.5).strokeColor(GRIS_MOY).stroke();
+    .text('COMPTABLE', L + 330, y, { width: 165, align: 'center' });
+  y += 18;
+
+  // ── Cachet + signature (la signature traverse le haut du cachet) ─────────
+  const stampW = 90;
+  drawCachetSignature(doc, L + 365, y, stampW);
+  y += stampW + 10;
 
   // ── Pied de page ──────────────────────────────────────────────────────────
   const pH = doc.page.height;
@@ -952,6 +976,21 @@ const generateEtatLivraison = (commande, livraisons) => {
     .text('TOTAL LIVRÉ', 44, y + 5, { width: 275, lineBreak: false })
     .text(`${totalLivre} m³  (${tauxRealisation}% de ${c.volumeBeton} m³ commandés)`, 320, y + 5, { width: 230, align: 'right', lineBreak: false });
   y += 22;
+
+  // ── Signatures (Client / AMP BÉTON avec cachet) ───────────────────────────
+  const sigH = 125;
+  if (y + sigH > 770) { doc.addPage(); y = 40; }
+  y += 8;
+  const sigColW = 515 / 2;
+  doc.rect(40, y, 515, sigH).lineWidth(0.8).strokeColor(NOIR).stroke();
+  doc.moveTo(40 + sigColW, y).lineTo(40 + sigColW, y + sigH).lineWidth(0.5).strokeColor(NOIR).stroke();
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
+    .text('Reçu par (Client / Chauffeur)', 45, y + 6, { width: sigColW - 10, lineBreak: false });
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(NOIR)
+    .text('AMP BÉTON', 40 + sigColW + 5, y + 6, { width: sigColW - 10, lineBreak: false });
+  const stampW = 70;
+  drawCachetSignature(doc, 40 + sigColW + (sigColW - stampW) / 2, y + 28, stampW);
+  y += sigH + 6;
 
   // ── Pied ──────────────────────────────────────────────────────────────────
   const pH = doc.page.height;
