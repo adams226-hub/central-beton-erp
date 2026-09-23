@@ -42,27 +42,42 @@ const getStatistiques = asyncHandler(async (req, res) => {
 
 const genererPDF = asyncHandler(async (req, res) => {
   const commande = await service.getCommande(req.params.id);
-  const f = commande.formulation;
-  const v = commande.volumeBeton || 0;
   const params = await parametresService.get();
 
-  // Recalcul complet avec options de la commande
-  const cmdOpts = {
-    includePersonnel:    commande.includePersonnel    ?? true,
-    includeRestauration: commande.includeRestauration ?? true,
-    fraisPeage:  commande.fraisPeage  ?? 0,
-    autresFrais: commande.autresFrais ?? 0,
-  };
-  const calculs = f && v > 0
-    ? calculerBesoinsCommande(v, f, commande.montantCommande || 0, commande.distanceLivraison || 0, params, commande.remisePct || 0, cmdOpts)
-    : {};
+  // Snapshot fige au dernier enregistrement de la commande : source de verite
+  // pour le PDF, pour ne pas deriver si la formulation est modifiee ensuite.
+  // Fallback sur un recalcul a la volee uniquement si aucun snapshot n'existe
+  // (anciennes commandes creees avant l'ajout du snapshot, ou multi-lignes).
+  let calculs = commande.calculsSnapshot;
+  if (!calculs) {
+    const f = commande.formulation;
+    const v = commande.volumeBeton || 0;
+    const cmdOpts = {
+      includePersonnel:    commande.includePersonnel    ?? true,
+      includeRestauration: commande.includeRestauration ?? true,
+      fraisPeage:  commande.fraisPeage  ?? 0,
+      autresFrais: commande.autresFrais ?? 0,
+    };
+    calculs = f && v > 0
+      ? calculerBesoinsCommande(v, f, commande.montantCommande || 0, commande.distanceLivraison || 0, params, commande.remisePct || 0, cmdOpts)
+      : {};
+    calculs = {
+      ...calculs,
+      prixCiment:    f?.prixCiment     ?? 105500,
+      prixSable:     f?.prixSable      ?? 16000,
+      prixGravier515: f?.prixGravier515 ?? 11500,
+      prixGravier1525: f?.prixGravier1525 ?? 11500,
+      prixPowerflow: f?.prixPowerflow  ?? 1750,
+      prixHydrofuge: f?.prixHydrofuge  ?? 2750,
+    };
+  }
 
   const fraisLoyer         = Math.round(params.loyerMensuel ?? 500000);
   const fraisAutresCharges = Math.round(params.fraisGenerauxMensuels ?? 150000);
   const fraisImpots        = Math.round((commande.montantCommande || 0) * (params.impotsTaux ?? 0.05));
   const chargesExploitation = fraisLoyer + fraisAutresCharges + fraisImpots;
 
-  // Fusionner avec les valeurs stockées (fallback si recalcul impossible)
+  // Fusionner avec les valeurs stockées (fallback si le snapshot/recalcul est incomplet)
   const k = {
     ...calculs,
     coutTotal:    calculs.coutTotal    ?? commande.coutTotal    ?? 0,
@@ -72,12 +87,6 @@ const genererPDF = asyncHandler(async (req, res) => {
     fraisLoyer, fraisAutresCharges, fraisImpots, chargesExploitation,
     beneficeReel:     calculs.beneficeReel     ?? commande.beneficeReel     ?? 0,
     tauxBeneficeReel: calculs.tauxBeneficeReel ?? commande.tauxBeneficeReel ?? 0,
-    prixCiment:    f?.prixCiment     ?? 105500,
-    prixSable:     f?.prixSable      ?? 16000,
-    prixGravier515: f?.prixGravier515 ?? 11500,
-    prixGravier1525: f?.prixGravier1525 ?? 11500,
-    prixPowerflow: f?.prixPowerflow  ?? 1750,
-    prixHydrofuge: f?.prixHydrofuge  ?? 2750,
     totalHydrofuge: calculs.totalHydrofuge ?? 0,
     coutHydrofuge: calculs.coutHydrofuge ?? 0,
     coutPersonnel:     commande.coutPersonnel     ?? calculs.coutPersonnel     ?? 0,

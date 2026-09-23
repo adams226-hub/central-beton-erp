@@ -15,4 +15,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["node", "src/app.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate; node src/app.js"]

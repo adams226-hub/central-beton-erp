@@ -118,6 +118,7 @@ const creerCommande = async (data, userId) => {
   const isMulti = Array.isArray(data.lignes) && data.lignes.length > 1;
 
   let calculsDB, montantFinal, volumeTotal, typeBetonPrincipal, formulationPrincipale, lignesStockees;
+  let calculsSnapshot = null;
 
   if (isMulti) {
     // ── Calcul par ligne ────────────────────────────────────────────────────
@@ -163,6 +164,15 @@ const creerCommande = async (data, userId) => {
     formulationPrincipale = formulation.id;
     calculsDB = rest;
     lignesStockees = null;
+    calculsSnapshot = {
+      ...calculs,
+      prixCiment:      formulation.prixCiment,
+      prixSable:       formulation.prixSable,
+      prixGravier515:  formulation.prixGravier515,
+      prixGravier1525: formulation.prixGravier1525,
+      prixPowerflow:   formulation.prixPowerflow,
+      prixHydrofuge:   formulation.prixHydrofuge,
+    };
   }
 
   const commande = await prisma.commande.create({
@@ -193,6 +203,7 @@ const creerCommande = async (data, userId) => {
       useAccelerateur: data.useAccelerateur !== undefined ? Boolean(data.useAccelerateur) : false,
       useHydrofuge:    data.useHydrofuge    !== undefined ? Boolean(data.useHydrofuge)    : false,
       ...(lignesStockees ? { lignes: lignesStockees } : {}),
+      ...(calculsSnapshot ? { calculsSnapshot } : {}),
       ...calculsDB,
     },
     include: { createdBy: { select: { nom: true, prenom: true } }, formulation: true },
@@ -224,6 +235,7 @@ const modifierCommande = async (id, data, userId) => {
   let calculsDB = {};
   let montantApresRemiseCalc = 0;
   let formulationUtilisee = null;
+  let calculsSnapshot = null;
   if (data.volumeBeton || data.formulationId) {
     const formulation = await prisma.formulation.findUnique({
       where: { id: data.formulationId || commande.formulationId },
@@ -231,6 +243,24 @@ const modifierCommande = async (id, data, userId) => {
     if (formulation) {
       formulationUtilisee = formulation;
       const params = await parametresService.get();
+      const calculsComplets = calculerBesoinsCommande(
+        data.volumeBeton || commande.volumeBeton,
+        formulation,
+        data.montantCommande || 0,
+        data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0),
+        params,
+        data.remisePct !== undefined ? data.remisePct : (commande.remisePct || 0),
+        { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais }
+      );
+      calculsSnapshot = {
+        ...calculsComplets,
+        prixCiment:      formulation.prixCiment,
+        prixSable:       formulation.prixSable,
+        prixGravier515:  formulation.prixGravier515,
+        prixGravier1525: formulation.prixGravier1525,
+        prixPowerflow:   formulation.prixPowerflow,
+        prixHydrofuge:   formulation.prixHydrofuge,
+      };
       const {
         fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
         coutCiment, coutTransportCiment, coutSable, coutGravier515, coutGravier1525, coutPowerflow,
@@ -245,15 +275,7 @@ const modifierCommande = async (id, data, userId) => {
         nbRepas, prixRepas,
         fraisSupp, montantRemise, montantApresRemise,
         ...rest
-      } = calculerBesoinsCommande(
-        data.volumeBeton || commande.volumeBeton,
-        formulation,
-        data.montantCommande || 0,
-        data.distanceLivraison !== undefined ? data.distanceLivraison : (commande.distanceLivraison || 0),
-        params,
-        data.remisePct !== undefined ? data.remisePct : (commande.remisePct || 0),
-        { includePersonnel: data.includePersonnel, includeRestauration: data.includeRestauration, fraisPeage: data.fraisPeage, autresFrais: data.autresFrais }
-      );
+      } = calculsComplets;
       calculsDB = rest;
       montantApresRemiseCalc = montantApresRemise || 0;
     }
@@ -279,6 +301,7 @@ const modifierCommande = async (id, data, userId) => {
       ...(data.useRetardateur  !== undefined && { useRetardateur:  Boolean(data.useRetardateur) }),
       ...(data.useAccelerateur !== undefined && { useAccelerateur: Boolean(data.useAccelerateur) }),
       ...(data.useHydrofuge    !== undefined && { useHydrofuge:    Boolean(data.useHydrofuge) }),
+      ...(calculsSnapshot && { calculsSnapshot }),
       ...calculsDB,
     },
   });
