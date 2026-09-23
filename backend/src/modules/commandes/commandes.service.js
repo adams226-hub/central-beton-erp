@@ -223,11 +223,13 @@ const modifierCommande = async (id, data, userId) => {
 
   let calculsDB = {};
   let montantApresRemiseCalc = 0;
+  let formulationUtilisee = null;
   if (data.volumeBeton || data.formulationId) {
     const formulation = await prisma.formulation.findUnique({
       where: { id: data.formulationId || commande.formulationId },
     });
     if (formulation) {
+      formulationUtilisee = formulation;
       const params = await parametresService.get();
       const {
         fraisRestauration, fraisLoyer, fraisImpots, fraisAutresCharges,
@@ -268,6 +270,7 @@ const modifierCommande = async (id, data, userId) => {
       ...(data.regimeImposition !== undefined && { regimeImposition: data.regimeImposition || null }),
       ...(data.volumeBeton && { volumeBeton: parseFloat(data.volumeBeton) }),
       ...(data.typeBeton && { typeBeton: data.typeBeton }),
+      ...(formulationUtilisee && { formulationId: formulationUtilisee.id }),
       ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
       ...(data.observations !== undefined && { observations: data.observations }),
       ...(montantApresRemiseCalc > 0 ? { montantCommande: montantApresRemiseCalc } : data.montantCommande ? { montantCommande: parseFloat(data.montantCommande) } : {}),
