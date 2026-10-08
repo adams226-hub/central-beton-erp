@@ -101,7 +101,8 @@ const CommandeForm = ({ commande, onSuccess, onCancel }) => {
       typeBeton: commande.typeBeton,
       dateLivraison: commande.dateLivraison?.split('T')[0],
       distanceLivraison: commande.distanceLivraison || '',
-      montantCommande: commande.montantCommande || '',
+      // Montant béton seul : les services annexes (proforma) sont rajoutés côté serveur
+      montantCommande: commande.montantCommande ? commande.montantCommande - (commande.montantAnnexes || 0) : '',
       remisePct: commande.remisePct || 0,
       includePersonnel:    commande.includePersonnel !== false,
       includeRestauration: commande.includeRestauration !== false,

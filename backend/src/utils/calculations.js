@@ -267,6 +267,30 @@ const calculerBesoinsCommande = (volume, formulation, montantCommande = 0, dista
   };
 };
 
+// Recalcule marge et bénéfice pour un montant de vente donné (ex. béton + services
+// annexes de la proforma), sans toucher au coût de production.
+const recalculerMarge = (montantVente, coutTotal, params = {}) => {
+  const IMPOTS_TAUX = params.impotsTaux            ?? 0.05;
+  const LOYER       = params.loyerMensuel          ?? 500000;
+  const FRAIS_GEN   = params.fraisGenerauxMensuels ?? 150000;
+
+  const margePrevisionnelle = montantVente > 0 ? montantVente - coutTotal : 0;
+  const tauxMarge           = montantVente > 0 ? (margePrevisionnelle / montantVente) * 100 : 0;
+  const fraisImpots         = montantVente > 0 ? montantVente * IMPOTS_TAUX : 0;
+  const chargesExploitation = LOYER + FRAIS_GEN + fraisImpots;
+  const beneficeReel        = margePrevisionnelle - chargesExploitation;
+  const tauxBeneficeReel    = montantVente > 0 ? (beneficeReel / montantVente) * 100 : 0;
+
+  return {
+    margePrevisionnelle: Math.round(margePrevisionnelle),
+    tauxMarge:           Math.round(tauxMarge * 100) / 100,
+    fraisImpots:         Math.round(fraisImpots),
+    chargesExploitation: Math.round(chargesExploitation),
+    beneficeReel:        Math.round(beneficeReel),
+    tauxBeneficeReel:    Math.round(tauxBeneficeReel * 100) / 100,
+  };
+};
+
 const genererReferenceCommande = async (prisma) => {
   const date = new Date();
   const day   = String(date.getDate()).padStart(2, '0');
@@ -283,4 +307,4 @@ const genererReferenceCommande = async (prisma) => {
   return `${prefixJour}${String(numero).padStart(4, '0')}`;
 };
 
-module.exports = { calculerBesoinsCommande, genererReferenceCommande, getZoneInfo, getBordereauPrixUnitaire, TARIF_BORDEREAU };
+module.exports = { calculerBesoinsCommande, recalculerMarge, genererReferenceCommande, getZoneInfo, getBordereauPrixUnitaire, TARIF_BORDEREAU };

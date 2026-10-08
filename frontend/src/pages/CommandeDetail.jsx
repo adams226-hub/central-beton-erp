@@ -85,6 +85,8 @@ const CommandeDetail = () => {
   const [showProformaModal, setShowProformaModal] = useState(false);
   const [proformaLignes, setProformaLignes] = useState([]);
   const [generatingProforma, setGeneratingProforma] = useState(false);
+  const [proformaAppliquer, setProformaAppliquer] = useState(null); // total proforma à confirmer
+  const [applyingProforma, setApplyingProforma] = useState(false);
 
   const { data: commande, isLoading } = useQuery({
     queryKey: ['commande', id],
@@ -144,9 +146,10 @@ const CommandeDetail = () => {
     if (Array.isArray(commande.proformaLignes) && commande.proformaLignes.length > 0) {
       setProformaLignes(commande.proformaLignes);
     } else {
-      const prixUnit = commande.volumeBeton > 0 ? Math.round((commande.montantCommande || 0) / commande.volumeBeton) : 0;
+      const montantBeton = (commande.montantCommande || 0) - (commande.montantAnnexes || 0);
+      const prixUnit = commande.volumeBeton > 0 ? Math.round(montantBeton / commande.volumeBeton) : 0;
       setProformaLignes([
-        { designation: `Béton de ${commande.typeBeton || commande.formulation?.typeBeton || 'C25/30'}`, unite: 'm3', quantite: commande.volumeBeton || 0, prixUnitaire: prixUnit, montant: commande.montantCommande || 0 },
+        { designation: `Béton de ${commande.typeBeton || commande.formulation?.typeBeton || 'C25/30'}`, unite: 'm3', quantite: commande.volumeBeton || 0, prixUnitaire: prixUnit, montant: montantBeton },
       ]);
     }
     setShowProformaModal(true);
@@ -174,8 +177,33 @@ const CommandeDetail = () => {
       const a = document.createElement('a'); a.href = url; a.download = `proforma-${commande.reference}.pdf`; a.click();
       URL.revokeObjectURL(url);
       setShowProformaModal(false);
+      qc.invalidateQueries({ queryKey: ['commande', id] });
+
+      // Total différent du montant de la commande → proposer la mise à jour
+      const totalProforma = Math.round(proformaLignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0));
+      const montantModifiable = !['LIVREE', 'ANNULEE'].includes(commande.statut)
+        && !((commande.montantPaye || 0) > 0 && commande.montantPaye >= (commande.montantCommande || 0));
+      if (montantModifiable && totalProforma > 0 && totalProforma !== Math.round(commande.montantCommande || 0)) {
+        setProformaAppliquer(totalProforma);
+      }
     } catch { toast.error('Erreur génération proforma'); }
     finally { setGeneratingProforma(false); }
+  };
+
+  const handleAppliquerProforma = async () => {
+    setApplyingProforma(true);
+    try {
+      await commandesAPI.appliquerProforma(id);
+      toast.success('Montant de la commande mis à jour');
+      qc.invalidateQueries({ queryKey: ['commande', id] });
+      qc.invalidateQueries({ queryKey: ['commandes'] });
+      qc.invalidateQueries({ queryKey: ['statistiques'] });
+      setProformaAppliquer(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erreur lors de la mise à jour');
+    } finally {
+      setApplyingProforma(false);
+    }
   };
 
   if (isLoading) return <PageLoader />;
@@ -370,16 +398,18 @@ const CommandeDetail = () => {
                   Prix de vente / m³{commande.remisePct > 0 ? ` (remise ${commande.remisePct}% incluse)` : ''}
                 </span>
                 <span className="text-sm font-semibold text-gray-900">
-                  {formatMontant(Math.round(commande.montantCommande / commande.volumeBeton))}
+                  {formatMontant(Math.round((commande.montantCommande - (commande.montantAnnexes || 0)) / commande.volumeBeton))}
                 </span>
               </div>
             )}
             {commande.montantCommande && (() => {
+              const montantAnnexes = commande.montantAnnexes || 0;
+              const montantBeton = commande.montantCommande - montantAnnexes;
               const remisePct = commande.remisePct || 0;
               const montantBrut = remisePct > 0
-                ? Math.round(commande.montantCommande * 100 / (100 - remisePct))
-                : commande.montantCommande;
-              const deduction = montantBrut - commande.montantCommande;
+                ? Math.round(montantBeton * 100 / (100 - remisePct))
+                : montantBeton;
+              const deduction = montantBrut - montantBeton;
               const adjCost = ((commande.useRetardateur ? 1 : 0) + (commande.useAccelerateur ? 1 : 0) + (commande.useHydrofuge ? 1 : 0)) * 10000 * (commande.volumeBeton || 0);
               const betonBase = montantBrut - adjCost;
               const hasAdj = adjCost > 0;
@@ -420,6 +450,18 @@ const CommandeDetail = () => {
                       <div className="flex justify-between py-1 border-b border-orange-100">
                         <span className="text-sm text-orange-700">Remise ({remisePct}%)</span>
                         <span className="text-sm font-medium text-orange-700">− {formatMontant(deduction)}</span>
+                      </div>
+                    </>
+                  )}
+                  {montantAnnexes !== 0 && (
+                    <>
+                      <div className="flex justify-between py-1 border-b border-gray-50">
+                        <span className="text-sm text-gray-600">Béton</span>
+                        <span className="text-sm text-gray-800">{formatMontant(montantBeton)}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-50">
+                        <span className="text-sm text-blue-700">{montantAnnexes > 0 ? 'Services annexes (proforma)' : 'Ajustement proforma'}</span>
+                        <span className="text-sm text-blue-700">{montantAnnexes > 0 ? '+' : '−'}{formatMontant(Math.abs(montantAnnexes))}</span>
                       </div>
                     </>
                   )}
@@ -741,6 +783,35 @@ const CommandeDetail = () => {
               </button>
               <button onClick={() => setShowProformaModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">
                 Annuler
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {proformaAppliquer !== null && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-gray-800 mb-2">Mettre à jour le montant de la commande ?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Le total de la proforma (<span className="font-semibold text-gray-900">{formatMontant(proformaAppliquer)}</span>) est
+              différent du montant de la commande (<span className="font-semibold text-gray-900">{formatMontant(commande.montantCommande)}</span>).
+              La marge et le reste à payer seront recalculés.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAppliquerProforma}
+                disabled={applyingProforma}
+                className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium text-sm"
+              >
+                {applyingProforma ? 'Mise à jour...' : `Oui, passer à ${formatMontant(proformaAppliquer)}`}
+              </button>
+              <button
+                onClick={() => setProformaAppliquer(null)}
+                disabled={applyingProforma}
+                className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm"
+              >
+                Non, garder {formatMontant(commande.montantCommande)}
               </button>
             </div>
           </motion.div>

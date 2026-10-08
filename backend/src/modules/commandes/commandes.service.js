@@ -1,4 +1,4 @@
-const { calculerBesoinsCommande, genererReferenceCommande } = require('../../utils/calculations');
+const { calculerBesoinsCommande, recalculerMarge, genererReferenceCommande } = require('../../utils/calculations');
 const { emitToUser, emitToRole } = require('../../config/socket');
 const { envoyerNotifValidation, envoyerEmail } = require('../../utils/email');
 const logger = require('../../config/logger');
@@ -236,13 +236,14 @@ const modifierCommande = async (id, data, userId) => {
   let montantApresRemiseCalc = 0;
   let formulationUtilisee = null;
   let calculsSnapshot = null;
+  let params = null;
   if (data.volumeBeton || data.formulationId) {
     const formulation = await prisma.formulation.findUnique({
       where: { id: data.formulationId || commande.formulationId },
     });
     if (formulation) {
       formulationUtilisee = formulation;
-      const params = await parametresService.get();
+      params = await parametresService.get();
       const calculsComplets = calculerBesoinsCommande(
         data.volumeBeton || commande.volumeBeton,
         formulation,
@@ -281,6 +282,19 @@ const modifierCommande = async (id, data, userId) => {
     }
   }
 
+  // Le formulaire ne renvoie que le montant béton : on rajoute les services annexes
+  // appliqués depuis la proforma (location pompe…) pour ne pas les perdre.
+  const montantBetonSaisi = montantApresRemiseCalc > 0 ? montantApresRemiseCalc : (data.montantCommande ? parseFloat(data.montantCommande) : 0);
+  const montantAnnexes = commande.montantAnnexes || 0;
+  let montantFinal = montantBetonSaisi;
+  if (montantBetonSaisi > 0 && montantAnnexes !== 0) {
+    montantFinal = montantBetonSaisi + montantAnnexes;
+    const coutTotal = calculsDB.coutTotal ?? commande.coutTotal ?? 0;
+    const { fraisImpots, ...marge } = recalculerMarge(montantFinal, coutTotal, params || await parametresService.get());
+    Object.assign(calculsDB, marge);
+    if (calculsSnapshot) Object.assign(calculsSnapshot, marge, { fraisImpots });
+  }
+
   const updated = await prisma.commande.update({
     where: { id },
     data: {
@@ -295,7 +309,7 @@ const modifierCommande = async (id, data, userId) => {
       ...(formulationUtilisee && { formulationId: formulationUtilisee.id }),
       ...(data.dateLivraison && { dateLivraison: new Date(data.dateLivraison) }),
       ...(data.observations !== undefined && { observations: data.observations }),
-      ...(montantApresRemiseCalc > 0 ? { montantCommande: montantApresRemiseCalc } : data.montantCommande ? { montantCommande: parseFloat(data.montantCommande) } : {}),
+      ...(montantFinal > 0 ? { montantCommande: montantFinal } : {}),
       ...(data.remisePct !== undefined && { remisePct: parseFloat(data.remisePct) || 0 }),
       ...(data.distanceLivraison !== undefined && { distanceLivraison: parseFloat(data.distanceLivraison) }),
       ...(data.useRetardateur  !== undefined && { useRetardateur:  Boolean(data.useRetardateur) }),
@@ -310,6 +324,57 @@ const modifierCommande = async (id, data, userId) => {
     data: { userId, type: 'MODIFICATION_COMMANDE', action: `Commande modifiée : ${commande.reference}`, details: { commandeId: id } },
   });
 
+  return updated;
+};
+
+// Applique le total de la proforma enregistrée comme nouveau montant de vente.
+// La différence avec le montant béton est stockée en services annexes.
+const appliquerProforma = async (id, userId) => {
+  const commande = await prisma.commande.findUnique({ where: { id } });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  if (['LIVREE', 'ANNULEE'].includes(commande.statut)) {
+    throw Object.assign(new Error('Commande livrée ou annulée : le montant ne peut plus être modifié'), { statusCode: 400 });
+  }
+
+  const lignes = Array.isArray(commande.proformaLignes) ? commande.proformaLignes : [];
+  const totalProforma = Math.round(lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0));
+  if (totalProforma <= 0) {
+    throw Object.assign(new Error('Aucune proforma enregistrée pour cette commande'), { statusCode: 400 });
+  }
+
+  const ancienMontant = commande.montantCommande || 0;
+  const montantPaye = commande.montantPaye || 0;
+  if (montantPaye > 0 && montantPaye >= ancienMontant) {
+    throw Object.assign(new Error('Commande déjà soldée : le montant ne peut plus être modifié'), { statusCode: 400 });
+  }
+
+  const montantBeton = ancienMontant - (commande.montantAnnexes || 0);
+  const montantAnnexes = totalProforma - montantBeton;
+  const params = await parametresService.get();
+  const { fraisImpots, ...marge } = recalculerMarge(totalProforma, commande.coutTotal || 0, params);
+
+  const updated = await prisma.commande.update({
+    where: { id },
+    data: {
+      montantCommande: totalProforma,
+      montantAnnexes,
+      montantRestant: Math.max(0, totalProforma - montantPaye),
+      ...marge,
+      ...(commande.calculsSnapshot ? { calculsSnapshot: { ...commande.calculsSnapshot, ...marge, fraisImpots } } : {}),
+    },
+  });
+
+  await prisma.activite.create({
+    data: {
+      userId,
+      type: 'MODIFICATION_COMMANDE',
+      action: `Montant de vente mis à jour depuis la proforma : ${commande.reference} (${ancienMontant} → ${totalProforma} FCFA)`,
+      details: { commandeId: id, ancienMontant, nouveauMontant: totalProforma, montantAnnexes },
+    },
+  });
+
+  logger.info(`Proforma appliquée : ${commande.reference} ${ancienMontant} → ${totalProforma} par ${userId}`);
   return updated;
 };
 
@@ -476,4 +541,4 @@ const notifierUser = async (userId, commande, type, message) => {
   }
 };
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, getStatistiques };

@@ -346,6 +346,9 @@ model Commande {
 
   // Lignes proforma personnalisées (sauvegardées depuis le modal proforma)
   proformaLignes Json?
+  // Services annexes appliqués depuis la proforma (location pompe, etc.) :
+  // montantCommande = montant béton + montantAnnexes
+  montantAnnexes Float   @default(0)
 
   // Charges d'exploitation & bénéfice réel
   chargesExploitation Float?

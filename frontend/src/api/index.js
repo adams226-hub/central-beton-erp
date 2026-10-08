@@ -21,6 +21,7 @@ export const commandesAPI = {
   telechargerPDF: (id) => api.get(`/commandes/${id}/pdf`, { responseType: 'blob' }),
   telechargerProforma: (id) => api.get(`/commandes/${id}/proforma`, { responseType: 'blob' }),
   telechargerProformaCustom: (id, lignes) => api.post(`/commandes/${id}/proforma`, { lignes }, { responseType: 'blob' }),
+  appliquerProforma: (id) => api.post(`/commandes/${id}/proforma/appliquer`),
 };
 
 // ─── Formulations ────────────────────────────────────

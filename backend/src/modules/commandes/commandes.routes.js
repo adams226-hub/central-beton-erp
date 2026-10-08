@@ -16,6 +16,7 @@ router.post('/:id/rejeter', requirePermission('commande:reject'), ctrl.rejeterCo
 router.get('/:id/pdf', requirePermission('commande:read'), ctrl.genererPDF);
 router.get('/:id/proforma', requirePermission('commande:read'), ctrl.genererFactureProforma);
 router.post('/:id/proforma', requirePermission('commande:read'), ctrl.genererFactureProformaCustom);
+router.post('/:id/proforma/appliquer', requirePermission('commande:read'), ctrl.appliquerProforma);
 router.delete('/:id', requirePermission('commande:delete'), ctrl.supprimerCommande);
 
 module.exports = router;

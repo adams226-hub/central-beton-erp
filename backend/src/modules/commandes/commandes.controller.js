@@ -25,6 +25,11 @@ const modifierCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Commande modifiée', data: commande });
 });
 
+const appliquerProforma = asyncHandler(async (req, res) => {
+  const commande = await service.appliquerProforma(req.params.id, req.user.id);
+  res.json({ success: true, message: 'Montant de vente mis à jour', data: commande });
+});
+
 const validerCommande = asyncHandler(async (req, res) => {
   const commande = await service.validerCommande(req.params.id, req.user.id, req.body.commentaire);
   res.json({ success: true, message: 'Commande validée', data: commande });
@@ -176,4 +181,4 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Commande ${commande.reference} supprimée définitivement` });
 });
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, genererFactureProformaCustom, supprimerCommande };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, genererFactureProformaCustom, supprimerCommande };

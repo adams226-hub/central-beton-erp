@@ -171,9 +171,10 @@ const generateDevis = (commande, calculs) => {
     y += ROW_H;
   } else {
     // ── Mono-ligne (logique existante) ─────────────────────────────────────
-    const montantBrutDevis = (c.remisePct > 0 && c.montantCommande)
-      ? Math.round(c.montantCommande * 100 / (100 - c.remisePct))
-      : (c.montantCommande || 0);
+    const montantBetonDevis = (c.montantCommande || 0) - (c.montantAnnexes || 0);
+    const montantBrutDevis = (c.remisePct > 0 && montantBetonDevis)
+      ? Math.round(montantBetonDevis * 100 / (100 - c.remisePct))
+      : montantBetonDevis;
     const remiseDevis = parseFloat(c.remisePct) || 0;
     const montantNetBetonDevis = Math.round(montantBrutDevis * (1 - remiseDevis / 100));
     const prixNetBetonM3Devis = c.volumeBeton > 0 ? Math.round(montantNetBetonDevis / c.volumeBeton) : 0;
@@ -183,6 +184,14 @@ const generateDevis = (commande, calculs) => {
       [`Béton prêt à l'emploi ${c.typeBeton || ''}${labelRemiseDevis}`, 'm³', fmtD(c.volumeBeton),
         prixNetBetonM3Devis > 0 ? fmtF(prixNetBetonM3Devis) + '/m³' : '—', fmtF(montantNetBetonDevis)],
       '#fff7ed', [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, true, false, true]);
+    y += ROW_H;
+  }
+
+  // Services annexes appliqués depuis la proforma (location pompe…)
+  if (c.montantAnnexes) {
+    drawRow(doc, y, ROW_H, [210, 55, 70, 100, 70],
+      ['Services annexes (proforma)', 'forfait', '1', '—', fmtF(c.montantAnnexes)],
+      GRIS_LEGER, [NOIR, NOIR, NOIR, NOIR, NOIR], [false, false, false, false, false]);
     y += ROW_H;
   }
 
