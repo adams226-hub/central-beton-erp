@@ -35,9 +35,11 @@ const tableauDeBordPDG = async (params) => {
     prisma.paiement.count({ where: { statut: 'EN_ATTENTE' } }),
   ]);
 
-  const caTotal = commandesPeriode.reduce((a, c) => a + (c.montantCommande || 0), 0);
-  const beneficeTotal = commandesPeriode.reduce((a, c) => a + (c.beneficeNetReel ?? c.margePrevisionnelle ?? 0), 0);
-  const volumeTotal = commandesPeriode.reduce((a, c) => a + (c.volumeBeton || 0), 0);
+  // Les commandes annulées restent visibles dans la répartition par statut mais ne comptent pas dans les totaux
+  const commandesComptees = commandesPeriode.filter((c) => c.statut !== 'ANNULEE');
+  const caTotal = commandesComptees.reduce((a, c) => a + (c.montantCommande || 0), 0);
+  const beneficeTotal = commandesComptees.reduce((a, c) => a + (c.beneficeNetReel ?? c.margePrevisionnelle ?? 0), 0);
+  const volumeTotal = commandesComptees.reduce((a, c) => a + (c.volumeBeton || 0), 0);
   const tauxMarge = caTotal > 0 ? Math.round((beneficeTotal / caTotal) * 100 * 100) / 100 : 0;
   const encaisse = statsPaiements._sum.montant || 0;
 
@@ -116,7 +118,7 @@ const rapportFinancier = async (params) => {
   const range = getDateRange(params);
 
   const commandes = await prisma.commande.findMany({
-    where: { createdAt: range, montantCommande: { gt: 0 } },
+    where: { createdAt: range, montantCommande: { gt: 0 }, statut: { not: 'ANNULEE' } },
     include: {
       paiements: { where: { statut: 'PAYE' }, select: { montant: true, modePaiement: true } },
     },
@@ -186,7 +188,7 @@ const rapportBenefices = async (params) => {
   const range = getDateRange(params);
 
   const commandes = await prisma.commande.findMany({
-    where: { createdAt: range, montantCommande: { gt: 0 } },
+    where: { createdAt: range, montantCommande: { gt: 0 }, statut: { not: 'ANNULEE' } },
     select: {
       id: true, reference: true, nomClient: true, volumeBeton: true, typeBeton: true,
       montantCommande: true, coutMateriaux: true, coutTotal: true, margePrevisionnelle: true,

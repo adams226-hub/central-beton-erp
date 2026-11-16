@@ -13,6 +13,7 @@ router.post('/', requirePermission('commande:create'), ctrl.creerCommande);
 router.put('/:id', requirePermission('commande:update'), ctrl.modifierCommande);
 router.post('/:id/valider', requirePermission('commande:validate'), ctrl.validerCommande);
 router.post('/:id/rejeter', requirePermission('commande:reject'), ctrl.rejeterCommande);
+router.post('/:id/annuler', requirePermission('commande:cancel'), ctrl.annulerCommande);
 router.get('/:id/pdf', requirePermission('commande:read'), ctrl.genererPDF);
 router.get('/:id/proforma', requirePermission('commande:read'), ctrl.genererFactureProforma);
 router.post('/:id/proforma', requirePermission('commande:read'), ctrl.genererFactureProformaCustom);

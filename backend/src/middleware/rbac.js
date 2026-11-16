@@ -1,7 +1,10 @@
 const PERMISSIONS = {
   PDG: [
     'commande:read', 'commande:create', 'commande:update', 'commande:validate',
-    'commande:reject', 'commande:delete',
+    'commande:reject', 'commande:cancel',
+    // Suppression définitive réservée au PDG (cas exceptionnels) : les autres rôles annulent,
+    // pour ne pas laisser de trou dans la numérotation des références.
+    'commande:delete',
     'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
     'user:read', 'user:create', 'user:update', 'user:delete',
     'notification:read',
@@ -16,7 +19,7 @@ const PERMISSIONS = {
   // Mêmes permissions que le PDG
   SECRETAIRE: [
     'commande:read', 'commande:create', 'commande:update', 'commande:validate',
-    'commande:reject', 'commande:delete',
+    'commande:reject', 'commande:cancel',
     'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
     'user:read', 'user:create', 'user:update', 'user:delete',
     'notification:read',
@@ -29,7 +32,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   CHEF_DE_SITE: [
-    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+    'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:cancel',
     'formulation:read', 'formulation:create', 'formulation:update',
     'notification:read',
     'stock:read', 'stock:write',
@@ -41,7 +44,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   ASSISTANT_COMPTABLE: [
-    'commande:read', 'commande:validate', 'commande:reject', 'commande:delete',
+    'commande:read', 'commande:validate', 'commande:reject', 'commande:cancel',
     'formulation:read',
     'notification:read',
     'stock:read',
@@ -54,7 +57,7 @@ const PERMISSIONS = {
   // Mêmes permissions que le PDG
   CHEF_COMPTABLE: [
     'commande:read', 'commande:create', 'commande:update', 'commande:validate',
-    'commande:reject', 'commande:delete',
+    'commande:reject', 'commande:cancel',
     'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
     'user:read', 'user:create', 'user:update', 'user:delete',
     'notification:read',
@@ -67,7 +70,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   COMPTABLE: [
-    'commande:read', 'commande:delete',
+    'commande:read', 'commande:cancel',
     'formulation:read',
     'notification:read',
     'stock:read',
@@ -79,7 +82,7 @@ const PERMISSIONS = {
     'dashboard:read',
   ],
   OPERATEUR: [
-    'commande:read', 'commande:delete',
+    'commande:read', 'commande:cancel',
     'production:read', 'production:write',
     'livraison:read', 'livraison:write',
     'stock:read',

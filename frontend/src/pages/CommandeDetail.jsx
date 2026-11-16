@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Download, CheckCircle, XCircle, Edit, User,
   MapPin, Phone, Calendar, Layers, Calculator, Clock, FileText,
-  Truck, CreditCard, Activity, TrendingUp, Package, Trash2,
+  Truck, CreditCard, Activity, TrendingUp, Package, Trash2, Ban,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { commandesAPI } from '../api';
@@ -82,6 +82,9 @@ const CommandeDetail = () => {
   const [showReject, setShowReject] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelMotif, setCancelMotif] = useState('');
+  const [cancelling, setCancelling] = useState(false);
   const [showProformaModal, setShowProformaModal] = useState(false);
   const [proformaLignes, setProformaLignes] = useState([]);
   const [generatingProforma, setGeneratingProforma] = useState(false);
@@ -117,6 +120,24 @@ const CommandeDetail = () => {
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleAnnuler = async () => {
+    if (!cancelMotif.trim()) return toast.error('Motif requis');
+    setCancelling(true);
+    try {
+      await commandesAPI.annuler(id, { motif: cancelMotif });
+      toast.success('Commande annulée');
+      qc.invalidateQueries({ queryKey: ['commande', id] });
+      qc.invalidateQueries({ queryKey: ['commandes'] });
+      qc.invalidateQueries({ queryKey: ['statistiques'] });
+      setShowCancel(false);
+      setCancelMotif('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erreur lors de l'annulation");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -225,10 +246,9 @@ const CommandeDetail = () => {
   );
   const canReject = hasPermission('commande:reject') && PENDING_STATUTS.includes(commande.statut);
   const canEdit = hasPermission('commande:update') && ['BROUILLON','EN_ATTENTE_SECRETAIRE','REJETEE'].includes(commande.statut);
-  // PDG et Secrétaire peuvent supprimer une commande peu importe son statut
-  const canDelete = hasPermission('commande:delete') && (
-    ['PDG', 'SECRETAIRE'].includes(user?.role) || ['BROUILLON','ANNULEE','REJETEE','EN_ATTENTE_SECRETAIRE'].includes(commande.statut)
-  );
+  const canCancel = hasPermission('commande:cancel') && !['ANNULEE','LIVREE'].includes(commande.statut);
+  // Suppression définitive réservée au PDG (cas exceptionnels), peu importe le statut
+  const canDelete = hasPermission('commande:delete');
 
   // Calculs paiements
   const totalCommande = commande.montantCommande || 0;
@@ -317,6 +337,11 @@ const CommandeDetail = () => {
           {canReject && (
             <button onClick={() => setShowReject(true)} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               <XCircle size={14} /> {commande.statut === 'EN_ATTENTE_SECRETAIRE' ? 'Client a refusé' : 'Rejeter'}
+            </button>
+          )}
+          {canCancel && (
+            <button onClick={() => setShowCancel(true)} className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <Ban size={14} /> Annuler la commande
             </button>
           )}
           {canDelete && (
@@ -826,6 +851,44 @@ const CommandeDetail = () => {
             <div className="flex gap-3">
               <button onClick={handleRejeter} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium text-sm">Confirmer</button>
               <button onClick={() => setShowReject(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">Annuler</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showCancel && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                <Ban size={18} className="text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">Annuler la commande</h3>
+                <p className="text-xs text-gray-400">{commande.reference}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              La commande reste dans la liste avec le statut <strong>Annulée</strong> et conserve sa référence.
+            </p>
+            <textarea
+              value={cancelMotif}
+              onChange={(e) => setCancelMotif(e.target.value)}
+              rows={3}
+              placeholder="Motif de l'annulation (obligatoire)"
+              className="amp-input resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleAnnuler}
+                disabled={cancelling}
+                className="flex-1 bg-gray-800 hover:bg-gray-900 disabled:opacity-60 text-white py-2.5 rounded-lg font-medium text-sm"
+              >
+                {cancelling ? 'Annulation...' : "Confirmer l'annulation"}
+              </button>
+              <button onClick={() => setShowCancel(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm">
+                Retour
+              </button>
             </div>
           </motion.div>
         </div>

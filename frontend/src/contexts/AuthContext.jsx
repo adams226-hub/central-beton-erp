@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
     if (!user) return false;
     const permissions = {
       PDG: [
-        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:cancel', 'commande:delete',
         'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
         'user:read', 'user:create', 'user:update',
         'stock:read', 'stock:write',
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
       ],
       // Mêmes permissions que le PDG
       SECRETAIRE: [
-        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:cancel',
         'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
         'user:read', 'user:create', 'user:update',
         'stock:read', 'stock:write',
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
         'dashboard:read',
       ],
       CHEF_DE_SITE: [
-        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:cancel',
         'formulation:read', 'formulation:create', 'formulation:update',
         'stock:read', 'stock:write',
         'production:read', 'production:write',
@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }) => {
         'rapport:read', 'dashboard:read',
       ],
       ASSISTANT_COMPTABLE: [
-        'commande:read', 'commande:validate', 'commande:reject', 'commande:delete',
+        'commande:read', 'commande:validate', 'commande:reject', 'commande:cancel',
         'formulation:read',
         'stock:read', 'production:read', 'livraison:read',
         'paiement:read', 'paiement:write',
@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       ],
       // Mêmes permissions que le PDG
       CHEF_COMPTABLE: [
-        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:delete',
+        'commande:read', 'commande:create', 'commande:update', 'commande:validate', 'commande:reject', 'commande:cancel',
         'formulation:read', 'formulation:create', 'formulation:update', 'formulation:delete',
         'user:read', 'user:create', 'user:update',
         'stock:read', 'stock:write',
@@ -117,13 +117,13 @@ export const AuthProvider = ({ children }) => {
         'dashboard:read',
       ],
       COMPTABLE: [
-        'commande:read', 'commande:delete', 'formulation:read',
+        'commande:read', 'commande:cancel', 'formulation:read',
         'stock:read', 'production:read', 'equipement:read', 'livraison:read',
         'paiement:read', 'paiement:write',
         'rapport:read', 'rapport:export', 'dashboard:read',
       ],
       OPERATEUR: [
-        'commande:read', 'commande:delete',
+        'commande:read', 'commande:cancel',
         'production:read', 'production:write',
         'livraison:read', 'livraison:write',
         'stock:read', 'equipement:read',

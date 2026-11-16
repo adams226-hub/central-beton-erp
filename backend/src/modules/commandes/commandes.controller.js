@@ -40,6 +40,11 @@ const rejeterCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Commande rejetée' });
 });
 
+const annulerCommande = asyncHandler(async (req, res) => {
+  await service.annulerCommande(req.params.id, req.user.id, req.body.motif);
+  res.json({ success: true, message: 'Commande annulée' });
+});
+
 const getStatistiques = asyncHandler(async (req, res) => {
   const stats = await service.getStatistiques();
   res.json({ success: true, data: stats });
@@ -145,16 +150,8 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   });
   if (!commande) return res.status(404).json({ success: false, message: 'Commande introuvable' });
 
-  // PDG et Secrétaire peuvent supprimer une commande peu importe son statut (sauf paiements confirmés, voir plus bas)
-  const outrepasseStatut = ['PDG', 'SECRETAIRE'].includes(req.user.role);
-  const SUPPRIMABLES = ['BROUILLON', 'ANNULEE', 'REJETEE', 'EN_ATTENTE_SECRETAIRE'];
-  if (!outrepasseStatut && !SUPPRIMABLES.includes(commande.statut)) {
-    return res.status(400).json({
-      success: false,
-      message: `Impossible de supprimer une commande en statut "${commande.statut}". Seules les commandes en brouillon, en attente de validation client, annulées ou rejetées peuvent être supprimées.`,
-    });
-  }
-
+  // Seul le PDG peut supprimer (permission commande:delete), peu importe le statut,
+  // sauf paiements confirmés. Les autres rôles passent par l'annulation.
   const paiementsPayes = commande.paiements.filter((p) => ['PAYE', 'PARTIEL'].includes(p.statut));
   if (paiementsPayes.length > 0) {
     return res.status(400).json({
@@ -181,4 +178,4 @@ const supprimerCommande = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Commande ${commande.reference} supprimée définitivement` });
 });
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, getStatistiques, genererPDF, genererFactureProforma, genererFactureProformaCustom, supprimerCommande };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, annulerCommande, getStatistiques, genererPDF, genererFactureProforma, genererFactureProformaCustom, supprimerCommande };

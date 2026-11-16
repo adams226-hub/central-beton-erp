@@ -32,7 +32,7 @@ const listerCommandes = async (user, filters = {}) => {
   if (user.role === 'SECRETAIRE') {
     where.OR = [
       { createdById: user.id },
-      { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'VALIDEE', 'EN_PRODUCTION', 'LIVREE', 'REJETEE'] } },
+      { statut: { in: ['EN_ATTENTE_SECRETAIRE', 'VALIDEE', 'EN_PRODUCTION', 'LIVREE', 'REJETEE', 'ANNULEE'] } },
     ];
   }
 
@@ -477,6 +477,60 @@ const rejeterCommande = async (commandeId, valideurId, motif) => {
   return { success: true };
 };
 
+// Annulation : la commande est conservée (statut ANNULEE) pour garder une numérotation
+// continue des références — la suppression définitive est réservée au PDG.
+const annulerCommande = async (commandeId, userId, motif) => {
+  const commande = await prisma.commande.findUnique({
+    where: { id: commandeId },
+    include: { paiements: true, livraisons: true },
+  });
+  if (!commande) throw Object.assign(new Error('Commande introuvable'), { statusCode: 404 });
+
+  if (!motif || !motif.trim()) throw Object.assign(new Error("Motif d'annulation obligatoire"), { statusCode: 400 });
+
+  if (['ANNULEE', 'LIVREE'].includes(commande.statut)) {
+    throw Object.assign(new Error(`Une commande ${commande.statut === 'LIVREE' ? 'livrée' : 'déjà annulée'} ne peut pas être annulée`), { statusCode: 400 });
+  }
+
+  const paiementsPayes = commande.paiements.filter((p) => ['PAYE', 'PARTIEL'].includes(p.statut));
+  if (paiementsPayes.length > 0) {
+    throw Object.assign(new Error(`Impossible d'annuler : ${paiementsPayes.length} paiement(s) déjà encaissé(s) sur cette commande.`), { statusCode: 400 });
+  }
+
+  const livraisonsActives = commande.livraisons.filter((l) => l.statut !== 'ANNULEE');
+  if (livraisonsActives.length > 0) {
+    throw Object.assign(new Error(`Impossible d'annuler : ${livraisonsActives.length} livraison(s) en cours ou planifiée(s). Annulez d'abord les livraisons.`), { statusCode: 400 });
+  }
+
+  await prisma.$transaction([
+    // Les échéances non encaissées n'ont plus lieu d'être
+    prisma.paiement.updateMany({
+      where: { commandeId, statut: { in: ['EN_ATTENTE', 'RETARD'] } },
+      data: { statut: 'ANNULE' },
+    }),
+    prisma.commande.update({
+      where: { id: commandeId },
+      data: { statut: 'ANNULEE' },
+    }),
+  ]);
+
+  if (commande.createdById !== userId) {
+    await notifierUser(commande.createdById, commande, 'INFO', `Commande ${commande.reference} annulée : ${motif}`);
+  }
+
+  await prisma.activite.create({
+    data: {
+      userId,
+      type: 'AUTRE',
+      action: `Commande annulée : ${commande.reference} - ${motif}`,
+      details: { commandeId, reference: commande.reference, ancienStatut: commande.statut, motif },
+    },
+  });
+
+  logger.info(`Commande annulée : ${commande.reference} par ${userId}`);
+  return { success: true };
+};
+
 const getStatistiques = async () => {
   const [total, enAttente, validees, rejetees, enProduction, livrees] = await prisma.$transaction([
     prisma.commande.count(),
@@ -493,7 +547,7 @@ const getStatistiques = async () => {
   });
 
   const commandesMois = await prisma.commande.findMany({
-    where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+    where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }, statut: { not: 'ANNULEE' } },
     select: { volumeBeton: true, montantCommande: true, statut: true },
   });
 
@@ -537,8 +591,9 @@ const notifierUser = async (userId, commande, type, message) => {
   // Email d'information
   const u = await prisma.user.findUnique({ where: { id: userId } });
   if (u?.email) {
-    envoyerEmail(u.email, `${u.prenom} ${u.nom}`, type === 'COMMANDE_VALIDEE' ? 'Commande validée' : 'Commande rejetée', message).catch(() => {});
+    const sujets = { COMMANDE_VALIDEE: 'Commande validée', COMMANDE_REJETEE: 'Commande rejetée', INFO: 'Commande annulée' };
+    envoyerEmail(u.email, `${u.prenom} ${u.nom}`, sujets[type] || 'Commande', message).catch(() => {});
   }
 };
 
-module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, getStatistiques };
+module.exports = { listerCommandes, getCommande, creerCommande, modifierCommande, appliquerProforma, validerCommande, rejeterCommande, annulerCommande, getStatistiques };

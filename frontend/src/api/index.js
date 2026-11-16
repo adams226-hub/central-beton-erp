@@ -16,6 +16,7 @@ export const commandesAPI = {
   modifier: (id, data) => api.put(`/commandes/${id}`, data),
   valider: (id, data) => api.post(`/commandes/${id}/valider`, data),
   rejeter: (id, data) => api.post(`/commandes/${id}/rejeter`, data),
+  annuler: (id, data) => api.post(`/commandes/${id}/annuler`, data),
   supprimer: (id) => api.delete(`/commandes/${id}`),
   statistiques: () => api.get('/commandes/statistiques'),
   telechargerPDF: (id) => api.get(`/commandes/${id}/pdf`, { responseType: 'blob' }),
